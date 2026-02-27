@@ -60,9 +60,10 @@ public class PresentationAgent {
      */
     @Action
     public SlidePage modifyExistingSlide(UserInput input, PresentationSettings settings, Ai ai) throws IOException {
-        // LLM identifies which page the user wants to fix
+        // Corrected: use creating().fromPrompt() instead of generateObject()
         Integer targetPage = ai.withAutoLlm()
-                .generateObject("Extract only the page number as an integer from this request: " + input.getContent(), Integer.class);
+                .creating(Integer.class)
+                .fromPrompt("Extract only the page number as an integer from this request: " + input.getContent());
         
         String currentContent = fileService.readPage(targetPage);
         
@@ -95,7 +96,8 @@ public class PresentationAgent {
         SlidePage page = ai.withAutoLlm()
                 .withReference(localKnowledgeTool)
                 .withToolGroup(CoreToolGroups.WEB)
-                .createObject(String.format("""
+                .creating(SlidePage.class)
+                .fromPrompt(String.format("""
                         Create a professional presentation slide based on: %s
                         
                         # Instructions:
@@ -105,7 +107,7 @@ public class PresentationAgent {
                         4. If no specialized template fits, DEFAULT to 'tpl-con-default-slide'.
                         
                         Return a SlidePage object with the selected markdown and a pageNumber.
-                        """, input.getContent()), SlidePage.class);
+                        """, input.getContent()));
         
         fileService.savePage(page.pageNumber(), page.markdown());
         return page;
@@ -114,7 +116,6 @@ public class PresentationAgent {
     @AchievesGoal(description = "The presentation has been merged into a final file")
     @Action
     public FinalPresentation mergePresentation(SlidePage lastUpdated) throws IOException {
-        // This action triggers whenever a slide is updated/created
         String path = fileService.mergeAll();
         return new FinalPresentation(path);
     }
