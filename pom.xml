@@ -77,6 +77,32 @@
 
     <profiles>
         <profile>
+            <id>ollama-models</id>
+            <activation>
+                <activeByDefault>false</activeByDefault>
+            </activation>
+            <dependencies>
+                <dependency>
+                    <groupId>com.embabel.agent</groupId>
+                    <artifactId>embabel-agent-starter-openai-custom</artifactId>
+                    <version>${embabel-agent.version}</version>
+                </dependency>
+            </dependencies>
+        </profile>
+        <profile>
+            <id>groq-models</id>
+            <activation>
+                <activeByDefault>env.GROQ_API_KEY</activeByDefault>
+            </activation>
+            <dependencies>
+                <dependency>
+                    <groupId>com.embabel.agent</groupId>
+                    <artifactId>embabel-agent-starter-openai-custom</artifactId>
+                    <version>${embabel-agent.version}</version>
+                </dependency>
+            </dependencies>
+        </profile>
+        <!--<profile>
             <id>google-models</id>
             <activation>
                 <property>
@@ -84,14 +110,13 @@
                 </property>
             </activation>
             <dependencies>
-                <!-- Use only the OpenAI-compatible Gemini starter as requested -->
                 <dependency>
                     <groupId>com.embabel.agent</groupId>
                     <artifactId>embabel-agent-starter-gemini</artifactId>
                     <version>${embabel-agent.version}</version>
                 </dependency>
             </dependencies>
-        </profile>
+        </profile>-->
     </profiles>
 
     <repositories>

@@ -47,10 +47,10 @@ public class SlideFileService {
 
         StringBuilder merged = new StringBuilder();
         
-        // 1. Add settings at the top
+        // 1. Add settings at the top (no separator after settings)
         Path settingsPath = dir.resolve("settings.md");
         if (Files.exists(settingsPath)) {
-            merged.append(Files.readString(settingsPath).trim()).append("\n\n---\n\n");
+            merged.append(Files.readString(settingsPath).trim()).append("\n\n");
         }
 
         // 2. Add all pages with exactly one '---' between them

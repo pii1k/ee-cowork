@@ -14,7 +14,7 @@ import java.io.IOException;
 @EnableConfigurationProperties(RagServiceEnhancerProperties.class)
 public class RagConfiguration {
 
-    @Value("${embabel.agent.rag.import.dir:knowledge}")
+    @Value("${embabel.agent.rag.import.dir:knowledge/documents}")
     private String importDir;
 
     @Bean
