@@ -4,6 +4,7 @@ import com.embabel.agent.api.invocation.AgentInvocation;
 import com.embabel.agent.core.AgentPlatform;
 import com.embabel.agent.domain.io.UserInput;
 import io.autocrypt.jwlee.cowork.agent.RootCauseAnalysisAgent;
+import io.autocrypt.jwlee.cowork.agent.ToolLoopAgent;
 import io.autocrypt.jwlee.cowork.agent.WriteAndReviewAgent;
 import io.autocrypt.jwlee.cowork.injected.InjectedDemo;
 import org.springframework.shell.standard.ShellComponent;
@@ -12,6 +13,14 @@ import org.springframework.shell.standard.ShellOption;
 
 @ShellComponent
 record DemoShell(InjectedDemo injectedDemo, AgentPlatform agentPlatform) {
+
+    @ShellMethod("Explore ToolLoopAgent (Infinite loop & CoreToolGroups)")
+    String toolLoop(@ShellOption(defaultValue = "시작") String query) {
+        var result = AgentInvocation
+                .create(agentPlatform, ToolLoopAgent.SuccessReport.class)
+                .invoke(new UserInput(query));
+        return (result != null) ? result.getContent() : "인간 개입 대기 중... (셸에서 폼을 입력하세요)";
+    }
 
     @ShellMethod("Demo")
     String demo() {
