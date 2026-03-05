@@ -5,8 +5,12 @@ spring:
     mcp:
       client:
         enabled: true
+        type: SYNC
         stdio:
           connections:
+            docker-mcp:
+              command: docker
+              args: [mcp, gateway, run]
             excalidraw:
               command: node
               args: scripts/excalidraw-shim.js
