@@ -7,11 +7,9 @@ import com.embabel.agent.core.ProcessOptions;
 import io.autocrypt.jwlee.cowork.weeklyreport.agent.WeeklyReportAgent;
 import io.autocrypt.jwlee.cowork.weeklyreport.domain.WeeklyReportEntity;
 import io.autocrypt.jwlee.cowork.weeklyreport.dto.*;
-import io.autocrypt.jwlee.cowork.weeklyreport.event.AgentStatusChangedEvent;
 import io.autocrypt.jwlee.cowork.weeklyreport.repository.WeeklyReportRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -30,7 +28,6 @@ public class WeeklyReportService {
     private final WeeklyReportRepository repository;
     private final AgentPlatform agentPlatform;
     private final WeeklyReportAgent weeklyReportAgent;
-    private final ApplicationEventPublisher eventPublisher;
     
     private final ConcurrentHashMap<String, AgentProcess> activeProcesses = new ConcurrentHashMap<>();
 
@@ -38,14 +35,12 @@ public class WeeklyReportService {
                                JiraExcelService jiraExcelService, 
                                WeeklyReportRepository repository, 
                                AgentPlatform agentPlatform,
-                               WeeklyReportAgent weeklyReportAgent,
-                               ApplicationEventPublisher eventPublisher) {
+                               WeeklyReportAgent weeklyReportAgent) {
         this.confluenceService = confluenceService;
         this.jiraExcelService = jiraExcelService;
         this.repository = repository;
         this.agentPlatform = agentPlatform;
         this.weeklyReportAgent = weeklyReportAgent;
-        this.eventPublisher = eventPublisher;
     }
 
     public String startGeneration(String meetingPageId) {
@@ -82,8 +77,6 @@ public class WeeklyReportService {
                 log.info("Starting process run: {}", processId);
                 process.run();
                 log.info("Process run finished or paused: {} - Status: {}", processId, process.getStatus());
-                // Publish event to notify UI
-                eventPublisher.publishEvent(new AgentStatusChangedEvent(processId, process.getStatus()));
             } catch (Exception e) {
                 log.error("Error during agent process execution", e);
             }
@@ -103,8 +96,6 @@ public class WeeklyReportService {
                     log.info("Resuming process run after feedback: {}", processId);
                     process.run();
                     log.info("Process run paused or completed: {} - Status: {}", processId, process.getStatus());
-                    // Publish event to notify UI
-                    eventPublisher.publishEvent(new AgentStatusChangedEvent(processId, process.getStatus()));
                 } catch (Exception e) {
                     log.error("Error during agent process execution after feedback", e);
                 }
