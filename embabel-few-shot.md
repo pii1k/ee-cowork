@@ -269,6 +269,45 @@ public class User {
 }
 ```
 
+## 1.5 Jinja Prompt Templates
+Embabel uses **Jinjava** (a Java implementation of Jinja2) to manage complex prompts. This allows you to separate prompt engineering from Java logic, making prompts easier to version, test, and reuse.
+
+### 1.5.1 Core Concepts
+- **Template Location**: Templates must be placed in `src/main/resources/prompts/` with a `.jinja` extension
+- **Rendering**: Use `.rendering("templateName")` on the `Ai` interface to select a template (omit the folder and extension)
+- **Bindings**: Pass dynamic data to the template using `Map<String, Object>` in methods like `respondWithSystemPrompt`
+
+### 1.5.2 Usage Example
+#### 1. Java Code
+```java
+@Action(trigger = UserMessage.class)
+public void chat(Conversation conv, ActionContext ctx) {
+    var response = ctx.ai()
+            .rendering("support") // Loads src/main/resources/prompts/support.jinja
+            .respondWithSystemPrompt(conv, Map.of(
+                    "persona", "Technical Support",
+                    "severity", "high"
+            ));
+    ctx.sendMessage(conv.addMessage(response));
+}
+```
+
+#### 2. Jinja Template (`prompts/support.jinja`)
+```jinja
+You are a {{ persona }} agent.
+Current incident severity: {{ severity }}.
+
+{# Composition: Reuse common prompt fragments #}
+{% include "elements/guardrails.jinja" %}
+
+Answer the user's question based on the provided conversation history.
+```
+
+### 1.5.3 Key Benefits
+- **Composition**: Use `{% include %}` to share common prompt elements (e.g., safety guardrails, output formatting) across different agents
+- **Separation of Concerns**: Java developers focus on flow logic; prompt engineers focus on template tuning
+- **Dynamic Logic**: Supports Jinja features like filters, loops (`{% for %}`), and conditionals (`{% if %}`) for complex context assembly
+
 # Chapter 2: Domain Engineering & DICE (Domain-Integrated Context Engineering)
 
 Embabel grounds LLM interactions in strongly-typed domain objects and services. This approach, **DICE**, ensures precision by giving LLMs "hands" (tools) to interact with your system.
@@ -477,6 +516,111 @@ public UserDecision askUser(String searchResult) {
 
 **Operational Tip**: When using `clearBlackboard = true` for looping, ensure all necessary context (like original user queries or configuration) is passed as fields in the state record, as it will be the only data surviving the blackboard wipe.
 
+## 3.5 Advanced HITL: The WAITING State & Direct Injection
+When an agent reaches a point requiring human intervention via `WaitFor`, it enters a formal **WAITING** state. This is a first-class lifecycle state in Embabel managed by the blackboard.
+
+### 3.5.1 The FormBindingRequest Mechanism
+Calling `WaitFor.formSubmission()` triggers two specific actions on the blackboard:
+- **Status Change**: The agent process status transitions to `WAITING`
+- **Request Object**: A `FormBindingRequest` is added to the blackboard, describing the expected data type and the prompt for the user
+
+### 3.5.2 Resuming a Process from a Controller
+To resume a waiting agent from an external system (like a Spring Controller), you must inject the expected object directly into the process's blackboard and then trigger a re-plan.
+
+```java
+import com.embabel.agent.core.AgentPlatform;
+import com.embabel.chat.ChatSession;
+import com.embabel.chat.UserMessage;
+import java.time.Instant;
+
+public void resumeWorkflow(String processId, String comments, boolean approved, ChatSession session, AgentPlatform platform) {
+    // 1. Create the structured data object expected by the agent
+    var feedback = new WriteAndReviewAgent.HumanFeedback(approved, comments);
+    
+    // 2. Inject the object directly into the blackboard via AgentPlatform
+    // Note: Use platform.getAgentProcess(id).getBlackboard().addObject()
+    platform.getAgentProcess(processId).getBlackboard().addObject(feedback);
+    
+    // 3. Send a signal (UserMessage) to wake up the planner and evaluate the new state
+    session.onUserMessage(new UserMessage("Decision submitted", "system", Instant.now()));
+}
+```
+
+### 3.5.3 Comprehensive Example: WriteAndReviewAgent
+This example demonstrates a complete multi-state workflow featuring content generation, human-in-the-loop approval, and conditional looping.
+
+```java
+import com.embabel.agent.api.annotation.*;
+import com.embabel.agent.api.common.ActionContext;
+import com.embabel.agent.api.common.Ai;
+import com.embabel.chat.AssistantMessage;
+import com.embabel.chat.UserMessage;
+import com.embabel.agent.core.hitl.WaitFor;
+import com.embabel.common.ai.model.LlmOptions;
+import org.springframework.stereotype.Component;
+
+@Agent(description = "Iterative story writing with human-in-the-loop review")
+@Component
+public class WriteAndReviewAgent {
+
+    public record Story(String text) {}
+    public record HumanFeedback(boolean acceptable, String comments) {}
+
+    @State
+    public interface Stage {}
+
+    @Action
+    public AssessStory craftStory(UserMessage input, Ai ai, ActionContext ctx) {
+        var draft = ai.withLlm(LlmOptions.withAutoLlm().withTemperature(0.7))
+                      .createObject("Write a story about: " + input.getContent(), Story.class);
+        ctx.sendMessage(new AssistantMessage("Generated draft: " + draft.text()));
+        return new AssessStory(input, draft);
+    }
+
+    @State
+    public record AssessStory(UserMessage originalInput, Story story) implements Stage {
+        @Action
+        public HumanFeedback getFeedback() {
+            // Process enters WAITING state here
+            return WaitFor.formSubmission("Review the draft. Approve or provide instructions.", HumanFeedback.class);
+        }
+
+        @Action(clearBlackboard = true)
+        public Stage assess(HumanFeedback feedback, ActionContext ctx) {
+            if (feedback.acceptable()) {
+                ctx.sendMessage(new AssistantMessage("Approved! Finalizing..."));
+                return new Done(story);
+            }
+            ctx.sendMessage(new AssistantMessage("Rejected. Instructions: " + feedback.comments()));
+            return new ReviseStory(originalInput, story, feedback.comments());
+        }
+    }
+
+    @State
+    public record ReviseStory(UserMessage input, Story story, String instructions) implements Stage {
+        @Action(clearBlackboard = true)
+        public AssessStory revise(Ai ai, ActionContext ctx) {
+            var revised = ai.createObject("Revise this story: " + story.text() + 
+                                         "\nBased on: " + instructions, Story.class);
+            ctx.sendMessage(new AssistantMessage("Revised draft: " + revised.text()));
+            return new AssessStory(input, revised);
+        }
+    }
+
+    @State
+    public record Done(Story story) implements Stage {
+        @AchievesGoal(description = "Story is finalized and reviewed")
+        public String finish() { return story.text(); }
+    }
+}
+```
+
+**Key Patterns in this Example:**
+- **State Scoping**: The planner only sees actions relevant to the current stage (e.g., `revise` is only available in `ReviseStory`)
+- **Looping**: `ReviseStory` returns a new `AssessStory`, creating a cycle until the human approves
+- **Blackboard Clearing**: `clearBlackboard = true` is used on transitions to prevent the planner from using stale data from previous iterations
+- **Direct Feedback Usage**: The `assess` action uses the injected `HumanFeedback` object immediately without additional AI inference
+
 # Chapter 4: RAG & Conversations (Multi-Turn)
 
 Embabel’s RAG and Chat architectures are designed to minimize token usage by treating context as manageable **Assets**, **References**, and **States**.
@@ -571,49 +715,147 @@ public void scopedSearch(Customer customer, ToolishRag rag) {
 ```
 
 ## 4.3 Chatbot Architecture (Stateful Conversations)
-A chatbot in Embabel is a long-lived `AgentProcess` that manages multi-turn context by separating **Message History** from **Blackboard State**.
+An Embabel chatbot is backed by a long-lived `AgentProcess` that manages multi-turn context by separating **Message History** from **Blackboard State**.
 
-- **Message Triggers**: Use `@Action(trigger = UserMessage.class)` to define actions that fire whenever a new user message arrives.
-- **Conversation**: Holds the `Message` history via `addMessage`.
-- **Blackboard Hydration**: When resuming a session, Embabel restores structured objects (POJOs) to the blackboard. This is much more token-efficient than re-sending raw text history, as structured data carries higher information density.
+### 4.3.1 Core Concepts
+- **Long-Lived AgentProcess**: Unlike stateless RAG, a chatbot process pauses between messages, maintaining the blackboard state throughout the session
+- **Utility AI Selection**: The planner uses Utility AI to select the best response strategy (e.g., RAG search vs. direct answer) based on the current context
+- **Message Triggers**: Actions use `trigger = UserMessage.class` to fire automatically when a new user message is added to the blackboard
 
-### 4.3.1 Chatbot Architecture Sample
+### 4.3.2 Implementation: Action Methods
+Define actions in an `@EmbabelComponent` that respond to `UserMessage` events.
+
 ```java
-@EmbabelComponent
-public class SupportChatActions {
+import com.embabel.agent.api.annotation.Action;
+import com.embabel.agent.api.annotation.EmbabelComponent;
+import com.embabel.agent.api.common.ActionContext;
+import com.embabel.chat.Conversation;
+import com.embabel.chat.UserMessage;
+import com.embabel.chat.AssistantMessage;
+import java.util.Map;
 
-    // Message trigger: Fires when the process receives a UserMessage
-    @Action(trigger = UserMessage.class)
-    public void onUserMessage(UserMessage msg, Conversation conversation, OperationContext ctx) {
-        // Conversation holds the message history.
-        var response = ctx.ai()
-                .rendering("support-persona") // Load prompt from Jinja template
+@EmbabelComponent
+public class ChatActions {
+
+    @Action(canRerun = true, trigger = UserMessage.class)
+    public void respond(Conversation conversation, ActionContext context) {
+        // AI evaluates the entire message history from conversation.getMessages()
+        var assistantMessage = context.ai()
+                .withAutoLlm()
+                .rendering("chatbot-persona") // Load Jinja template from resources/prompts
                 .respond(conversation.getMessages());
 
-        conversation.addMessage(response);
+        // Add the response to the conversation history and notify output channels
+        context.sendMessage(conversation.addMessage(assistantMessage));
     }
 }
 ```
 
-## 4.4 Asset Tracking & Asset-as-a-Tool
-**Assets** are structured outputs (documents, reports, POJOs) generated during a session. Embabel saves tokens by allowing these assets to be re-used as **Tools** (LLM References) in subsequent turns.
-
-- **AssetTracker**: Maintains the list of artifacts generated in the conversation.
-- **Asset-as-a-Tool**: Use `conversation.mostRecent().references()` to expose previous turn results as searchable tools for the current turn.
+### 4.3.3 Implementation: Configuration
+Configure the `Chatbot` bean to discover all registered actions.
 
 ```java
+import com.embabel.chat.Chatbot;
+import com.embabel.agent.core.AgentPlatform;
+import com.embabel.chat.agent.AgentProcessChatbot;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+
+@Configuration
+public class ChatConfiguration {
+
+    @Bean
+    public Chatbot chatbot(AgentPlatform agentPlatform) {
+        // Utility-based chatbot that automatically discovers @Action methods
+        return AgentProcessChatbot.utilityFromPlatform(agentPlatform);
+    }
+}
+```
+
+### 4.3.4 Implementation: Web Controller (HTMX)
+Manage chat sessions and bridge the agent's output to the web interface.
+
+```java
+import com.embabel.chat.ChatSession;
+import com.embabel.chat.Chatbot;
+import com.embabel.chat.Message;
+import com.embabel.chat.UserMessage;
+import com.embabel.agent.api.channel.OutputChannel;
+import com.embabel.agent.api.channel.MessageOutputChannelEvent;
+import org.springframework.web.bind.annotation.*;
+import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
+
+@RestController
+@RequestMapping("/chat")
+public class ChatController {
+    private final Chatbot chatbot;
+    private final List<Message> history = new CopyOnWriteArrayList<>();
+
+    public ChatController(Chatbot chatbot) { this.chatbot = chatbot; }
+
+    @PostMapping("/send")
+    public List<Message> sendMessage(@RequestParam String text) {
+        // Create or retrieve session with an OutputChannel to capture AI responses
+        ChatSession session = chatbot.createSession(null, event -> {
+            if (event instanceof MessageOutputChannelEvent me) {
+                history.add(me.getMessage());
+            }
+        }, null, "unique-conv-id");
+
+        UserMessage userMsg = new UserMessage(text);
+        history.add(userMsg);
+        
+        // Trigger the agent process
+        session.onUserMessage(userMsg);
+        
+        return history;
+    }
+}
+```
+
+### **[Tip] Scaling Actions with Multiple Platforms**
+When the number of actions grows, managing them and enabling the AI to make efficient choices can become challenging.
+- **Multiple `AgentPlatform` Instances**: Create several `AgentPlatform` beans, each configured to scan and manage a specific set of actions relevant to a domain (e.g., `supportPlatform`, `salesPlatform`).
+- **`@Qualifier` for `Chatbot` Binding**: Use `@Qualifier` during `@Bean` definition to bind a `Chatbot` instance to a specific `AgentPlatform`, ensuring each chatbot operates within its own action space.
+
+### **[Tip] Building Stateless Chatbots**
+The current sample code uses an in-memory session (`ConcurrentHashMap`), making it stateful. For production environments, a stateless architecture is preferred for scalability and resilience.
+- **External Storage for Conversation State**: Leverage the `embabel-chat-store` module to persist `Conversation` history and blackboard state to external databases like `Neo4j` or `PostgreSQL`.
+- **`conversationId` for State Restoration**: Upon each request, use a `conversationId` (passed from the client) to load the previous conversation state from the database, process the request, and then save any updated state back to the database.
+- **Improved Scalability**: This stateless design allows multiple server instances to share the same conversation state, ensuring high availability and horizontal scalability for your chatbot service.
+
+---
+
+## 4.4 Asset Tracking & Asset-as-a-Tool
+**Assets** are structured outputs (documents, reports, POJOs) generated during a session. Embabel allows these assets to be re-used as **Tools** (LLM References) in subsequent turns to save tokens and maintain precision.
+
+### 4.4.1 Conversation Assets
+The `Conversation` interface provides a merged view of assets from both the explicit `AssetTracker` and individual `AssistantMessage` objects.
+
+```java
+import com.embabel.chat.Conversation;
+import com.embabel.agent.api.reference.LlmReference;
+import java.util.List;
+
 @Action(trigger = UserMessage.class)
-public void respondWithAssets(Conversation conv, OperationContext ctx) {
-    // Re-use assets from the last 5 turns as tools
+public void respondWithContext(Conversation conv, ActionContext ctx) {
+    // 1. Retrieve assets from the last 5 turns
+    // 2. Convert them into LlmReferences (searchable tools for the LLM)
     List<LlmReference> assetRefs = conv.mostRecent(5).references();
 
     var response = ctx.ai()
-            .withReferences(assetRefs) // LLM can now "query" previous turn results
+            .withReferences(assetRefs) // LLM can now "query" earlier turn results
             .respond(conv.getMessages());
 
     conv.addMessage(response);
 }
 ```
+
+### 4.4.2 Key Asset Mechanics
+- **AssetTracker**: Maintains artifacts that should persist across multiple turns or server restarts
+- **Chronological Merging**: `conversation.getAssets()` returns tracker assets first, followed by message-level assets in order
+- **Duplicate Removal**: Assets are automatically de-duplicated by their unique ID, with tracker versions taking priority
 
 ## 4.5 Eager Search Pattern
 Pre-load context via similarity search *before* the LLM starts its reasoning, while keeping the tools available for follow-up queries. This combines the speed of traditional RAG with the flexibility of agentic tools.
