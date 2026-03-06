@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<body>
+    <div th:fragment="complete" id="final-container" class="bg-white p-4 rounded shadow-sm border border-success">
+        <div class="text-center mb-4">
+            <div class="display-1 text-success mb-2">✓</div>
+            <h3 class="fw-bold text-success">Generation Complete!</h3>
+            <p class="text-muted">The weekly report has been reviewed and finalized.</p>
+        </div>
+
+        <div class="card mb-4 shadow-sm border-0">
+            <div class="card-header bg-dark text-white">Final Report Content</div>
+            <div class="card-body preview-content p-4" style="max-height: 600px; overflow-y: auto;">
+                <div th:utext="${finalReport.noticeHtml}">Notice HTML</div>
+                <hr class="my-4">
+                <div th:utext="${finalReport.requestHtml}">Request HTML</div>
+            </div>
+        </div>
+
+        <div class="d-grid gap-2">
+            <form th:action="@{/finalize/{id}(id=${processId})}" method="POST">
+                <button type="submit" class="btn btn-primary btn-lg w-100 fw-bold">Save Report & Go to List</button>
+            </form>
+        </div>
+    </div>
+</body>
+</html>

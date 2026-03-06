@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/layout :: head}"></head>
+<body class="bg-light">
+    <div th:replace="~{fragments/layout :: nav}"></div>
+    
+    <div class="container">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h2>Weekly Reports</h2>
+            <a href="/generate" class="btn btn-primary">Generate New Report</a>
+        </div>
+
+        <div class="card shadow-sm">
+            <div class="card-body">
+                <table class="table table-hover">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Title</th>
+                            <th>Created At</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr th:each="report : ${reports}">
+                            <td th:text="${report.title}">Title</td>
+                            <td th:text="${report.createdAt}">Date</td>
+                            <td>
+                                <a th:href="@{/reports/{id}(id=${report.id})}" class="btn btn-sm btn-info text-white">View</a>
+                                <a th:href="@{/reports/{id}/download(id=${report.id})}" class="btn btn-sm btn-success">Download HTML</a>
+                            </td>
+                        </tr>
+                        <tr th:if="${#lists.isEmpty(reports)}">
+                            <td colspan="3" class="text-center text-muted">No reports found.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

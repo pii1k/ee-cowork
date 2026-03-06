@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<body>
+    <div th:fragment="status" id="status-container" th:attr="hx-get=@{/status/{id}(id=${processId})}" hx-trigger="load, every 2s" hx-target="this" hx-swap="outerHTML">
+        <div class="text-center p-5 bg-white rounded shadow-sm border border-primary-subtle">
+            <div class="spinner-border text-primary mb-3" role="status" style="width: 3rem; height: 3rem;">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+            <h4 class="text-primary fw-bold">Analyzing Data...</h4>
+            <p class="text-muted small">The AI agent is analyzing OKRs, Jira issues, and meeting minutes per team.</p>
+        </div>
+    </div>
+
+    <div th:fragment="loading" id="status-container" th:attr="hx-get=@{/status/{id}(id=${processId})}" hx-trigger="every 2s" hx-target="this" hx-swap="outerHTML">
+        <div class="text-center p-5 bg-white rounded shadow-sm border border-secondary-subtle">
+            <div class="spinner-grow text-secondary mb-3" role="status">
+                <span class="visually-hidden">Processing...</span>
+            </div>
+            <h4 class="text-secondary fw-bold">Processing Next Step...</h4>
+            <p class="text-muted small">Applying your feedback and refining the report draft.</p>
+        </div>
+    </div>
+</body>
+</html>

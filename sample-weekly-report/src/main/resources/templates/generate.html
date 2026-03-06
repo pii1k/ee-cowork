@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/layout :: head}"></head>
+<body class="bg-light">
+    <div th:replace="~{fragments/layout :: nav}"></div>
+    
+    <div class="container">
+        <h2 class="mb-4">Generate Weekly Report</h2>
+
+        <div class="row">
+            <div class="col-md-4">
+                <div class="card shadow-sm mb-4">
+                    <div class="card-header bg-primary text-white">Report Settings</div>
+                    <div class="card-body">
+                        <form hx-post="/generate" hx-target="#report-result" hx-indicator=".loading-spinner" class="needs-validation">
+                            <div class="mb-3">
+                                <label for="meetingUrl" class="form-label">Select Weekly Meeting Minutes</label>
+                                <select class="form-select" id="meetingUrl" name="meetingUrl" required>
+                                    <option th:each="meeting : ${meetingUrls}" th:value="${meeting.id}" th:text="${meeting.title}">Meeting Title</option>
+                                </select>
+                            </div>
+                            <div class="d-grid gap-2">
+                                <button type="submit" class="btn btn-primary btn-generate">
+                                    <span class="spinner-border spinner-border-sm loading-spinner" role="status"></span>
+                                    Generate Draft
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+                
+                <div class="alert alert-info">
+                    <strong>Note:</strong> Data is automatically collected based on:
+                    <ul class="mb-0 mt-2">
+                        <li><strong>OKR:</strong> <span th:text="${okr.title}">OKR Title</span></li>
+                        <li><strong>Jira:</strong> Recent 4 weeks activity</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="col-md-8">
+                <div id="report-result">
+                    <div class="report-preview text-center d-flex align-items-center justify-content-center text-muted">
+                        Select a meeting date and click 'Generate' to see the draft.
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
