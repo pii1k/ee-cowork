@@ -16,3 +16,5 @@ embabel-agent-api/src/main/resources/mcp/**
 knowledge/.DS_Store
 output/
 **/.DS_Store
+
+**/.envrc
