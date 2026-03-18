@@ -1,26 +1,25 @@
 spring:
   profiles:
     active: gemini
-  ai:
-    mcp:
-      client:
-        enabled: true
-        type: SYNC
-        stdio:
-          connections:
-            docker-mcp:
-              command: docker
-              args: [mcp, gateway, run]
-            excalidraw:
-              command: node
-              args: scripts/excalidraw-shim.js
-              env:
-                EXPRESS_SERVER_URL: http://localhost:3001
-                ENABLE_CANVAS_SYNC: true
+  main:
+    banner-mode: off
+    log-startup-info: false
+
+# JWLEE CLI UI configuration
+cli:
+  ui:
+    title: "JWLEE CLI"
+    help-text: "도움말은 help 입력"
+    greeting: "오늘도 좋은 하루 되세요."
 
 logging:
+  file:
+    name: .shell.log
   level:
     root: INFO
+    org.springframework.shell: DEBUG
+    com.embabel: INFO
+    org.apache.lucene: WARN
 
 embabel:
   identities:

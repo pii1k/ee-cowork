@@ -5,7 +5,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 
 @SpringBootApplication
 class JwleeCoworkApplication {
-    public static void main(String[] args) {
-        SpringApplication.run(JwleeCoworkApplication.class, args);
-    }
+	public static void main(String[] args) {
+		SpringApplication.run(JwleeCoworkApplication.class, args);
+	}
 }
