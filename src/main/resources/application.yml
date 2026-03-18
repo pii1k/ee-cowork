@@ -56,3 +56,14 @@ presentation:
   merged:
     file:
       path: /Users/jwlee/Documents/obsidian/+Encounters/presentation_test.md
+
+app:
+  confluence:
+    baseUrl: https://auto-jira.atlassian.net/wiki
+    email: jwlee@autocrypt.io
+    apiToken: ${CONFLUENCE_API_TOKEN:}
+    okr-page-id: "2781544496"
+    meeting-root-id: "1778647765"
+  jira:
+    baseUrl: https://auto-jira.atlassian.net
+    projectKey: "VP"
