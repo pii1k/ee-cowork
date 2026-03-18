@@ -39,16 +39,29 @@ Vibe Coding을 통해 손쉽게 새 에이전트를 만들 수 있도록 표준 
 3. `XXXState.java`: 작업 계획 -> 승인 대기 -> 실행으로 이어지는 상태 인터페이스
 4. `XXXTools.java`: 해당 에이전트 전용 `@LlmTool` 모음
 
-## 4. 단계별 진행 계획 (Milestones)
+## 4. 단계별 진행 계획 및 진행 상황 (Milestones & Progress)
 
-- **Phase 1: 기반 설정 및 도구 구현**
-  - Spring Modulith 의존성 추가 및 아키텍처 검증 테스트 작성
-  - 7가지 공통 도구(`@LlmTool`) 구현 (Core 모듈)
-- **Phase 2: HITL 워크플로우 기반 뼈대 완성**
-  - Spring Shell UI와 Embabel `WaitFor` 간의 브릿지 구현 (명령어 입력 -> AI 고민 -> 승인 프롬프트 렌더링 -> AI 실행)
-- **Phase 3: 스캐폴딩 패키지 작성**
-  - 복사-붙여넣기(또는 자동 생성)로 즉시 쓸 수 있는 `agents.scaffold` 패키지 구성
-- **Phase 4: 첫 번째 샘플 에이전트 구현**
+- [x] **Phase 1: 기반 설정 및 도구 구현**
+  - **Spring Modulith 의존성 추가 및 아키텍처 검증**: `pom.xml` 구성 및 `src/test/java/io/autocrypt/jwlee/cowork/ModulithArchitectureTest.java` 작성 완료. `core` 모듈을 OPEN 모듈(`src/main/java/io/autocrypt/jwlee/cowork/core/package-info.java`)로 선언하여 `agents` 모듈에서 안전하게 참조하도록 구성.
+  - **공통 도구(Core Tools) 구현**: 작업 디렉토리 상위(`../`) 접근을 원천 차단하는 보안 로직 적용 완료.
+    - 파일 관련 (`ReadFile`, `WriteFile`, `Replace`, `ListDirectory`, `Glob`): `src/main/java/io/autocrypt/jwlee/cowork/core/tools/CoreFileTools.java`
+    - 시스템 관련 (`RunShellCommand`, `GrepSearch`): `src/main/java/io/autocrypt/jwlee/cowork/core/tools/CoreShellTools.java`
+
+- [x] **Phase 2: HITL 워크플로우 기반 뼈대 완성**
+  - **이벤트 기반 비동기 아키텍처 도입**: 단일 쓰레드 터미널(JLine) 환경에서 백그라운드로 도는 에이전트들의 승인 요청이 충돌 없이 안전하게 프롬프트(Y/N)로 표출되도록 구현.
+  - **주요 구현물 (경로: `src/main/java/io/autocrypt/jwlee/cowork/core/hitl/`)**:
+    - `ApprovalDecision.java`, `ApprovalRequestedEvent.java`: 사용자 응답과 이벤트 규격
+    - `CoreApprovalState.java`: 에이전트가 `WaitFor` 대기 상태에 진입하기 직전, `ApplicationContextHolder`를 이용해 정적으로 Spring 이벤트를 발행하는 상태 클래스.
+    - `ApplicationContextHolder.java`: Spring DI 밖의 객체(Embabel State)가 스프링 퍼블리셔를 쓸 수 있게 연결.
+    - `TerminalApprovalListener.java`: `@Async` 기반 리스너. 이벤트를 수신하면 터미널 화면에 승인 폼을 띄우고, 사용자의 입력(Decision)을 블랙보드에 꽂아 넣은 후 `process.run()`으로 에이전트를 재개시킴.
+  - **동작 데모 에이전트**: `demo-hitl` 명령어를 통해 실행해볼 수 있는 참조 모델. (`src/main/java/io/autocrypt/jwlee/cowork/agents/demo/DemoHitlAgent.java` 및 `DemoHitlCommand.java`)
+  - *특이사항*: Spring Shell 대화형 테스트 코드 실행 시 스트림 블로킹 이슈가 있어 TDD 기반 자동화 테스트 대신 수동/아키텍처 검증으로 대체함.
+
+- [ ] **Phase 3: 스캐폴딩 패키지 작성**
+  - 복사-붙여넣기(또는 자동 생성)로 즉시 쓸 수 있는 `agents.scaffold` 패키지 구성 (Command, Agent, State, Tools)
+
+- [ ] **Phase 4: 첫 번째 샘플 에이전트 구현**
   - 스캐폴딩을 이용해 실제로 동작하는 커스텀 에이전트 1개(예: ReadmeUpdater 등) 구현 및 테스트
-- **Phase 5: 이 프로젝트에 대한 README_new.md 파일 생성**
+
+- [ ] **Phase 5: 이 프로젝트에 대한 README_new.md 파일 생성**
 
