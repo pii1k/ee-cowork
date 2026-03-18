@@ -14,15 +14,13 @@ import org.springframework.context.ApplicationEventPublisher;
 public record CoreApprovalState(String message, String planDescription) implements BaseAgentState {
     
     @Action(description = "Wait for user to approve or reject the proposed plan.")
-    public ApprovalDecision waitForUser(ActionContext ctx, ApplicationEventPublisher publisher) {
+    public ApprovalDecision waitForUser(ActionContext ctx) {
         
-        // 1. Publish the event to notify the UI that approval is needed
-        // Identifies the currently running agent process
+        // 1. Publish the event via static holder to notify the UI
         String processId = ctx.getProcessContext().getAgentProcess().getId();
-        publisher.publishEvent(new ApprovalRequestedEvent(processId, message, planDescription));
+        ApplicationContextHolder.getPublisher().publishEvent(new ApprovalRequestedEvent(processId, message, planDescription));
         
         // 2. Pause execution and wait for an ApprovalDecision object to be injected into the blackboard
-        // When the UI submits the decision, it will inject this object and wake up the agent.
         return WaitFor.formSubmission("Approval Event Published", ApprovalDecision.class);
     }
 }

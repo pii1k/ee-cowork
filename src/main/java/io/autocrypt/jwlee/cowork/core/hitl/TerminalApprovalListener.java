@@ -8,6 +8,7 @@ import com.embabel.chat.UserMessage;
 import org.jline.terminal.Terminal;
 import org.springframework.context.event.EventListener;
 import org.springframework.core.io.ResourceLoader;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.shell.component.ConfirmationInput;
 import org.springframework.shell.component.StringInput;
 import org.springframework.shell.style.TemplateExecutor;
@@ -46,15 +47,18 @@ public class TerminalApprovalListener {
     /**
      * Listens for ApprovalRequestedEvent from any agent in the system.
      * Uses synchronized to lock the terminal UI if multiple agents request approval simultaneously.
+     * Executed asynchronously so the main agent process thread is not blocked waiting for UI rendering.
      */
+    @Async
     @EventListener
     public synchronized void onApprovalRequested(ApprovalRequestedEvent event) {
         AgentProcess process = platform.getAgentProcess(event.processId());
         
         // Wait briefly to ensure the agent has fully transitioned to WAITING state
-        while (process.getStatus() != AgentProcessStatusCode.WAITING) {
+        int retries = 0;
+        while (process.getStatus() != AgentProcessStatusCode.WAITING && retries < 50) {
             try { Thread.sleep(100); } catch (InterruptedException ignored) {}
-            // Add a timeout fallback in production code
+            retries++;
         }
 
         terminal.writer().println("\n========================================");
@@ -83,11 +87,12 @@ public class TerminalApprovalListener {
         // 3. Inject the decision directly into the waiting agent's blackboard
         process.getBlackboard().addObject(new ApprovalDecision(approved != null && approved, comment));
         
-        // 4. Send a signal (UserMessage) to the session to wake up the planner
+        // 4. Send a signal (UserMessage) to the session or explicitly run the process to wake up the planner
         if (currentSession != null) {
             currentSession.onUserMessage(new UserMessage("Decision submitted: " + approved, "system", Instant.now()));
         } else {
-            terminal.writer().println("[WARN] Current ChatSession not set in listener. Agent might not wake up automatically.");
+            // If no chat session is active (like in our demo command), directly resume the process
+            process.run();
         }
     }
 }
