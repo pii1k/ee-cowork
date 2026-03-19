@@ -9,11 +9,13 @@ import org.jline.terminal.Terminal;
 import org.springframework.context.event.EventListener;
 import org.springframework.core.io.ResourceLoader;
 import org.springframework.scheduling.annotation.Async;
-import org.springframework.shell.component.ConfirmationInput;
 import org.springframework.shell.component.StringInput;
 import org.springframework.shell.style.TemplateExecutor;
 import org.springframework.stereotype.Component;
 
+import org.springframework.shell.component.flow.ComponentFlow;
+import org.springframework.shell.component.flow.SelectItem;
+import java.util.Arrays;
 import java.time.Instant;
 
 /**
@@ -27,16 +29,19 @@ public class TerminalApprovalListener {
     private final ResourceLoader resourceLoader;
     private final TemplateExecutor templateExecutor;
     private final AgentPlatform platform;
+    private final ComponentFlow.Builder componentFlowBuilder;
     // For single-user CLI, we assume there's one primary chat session. 
     // In a web context, you'd map processId to a specific websocket session.
     private ChatSession currentSession;
 
     public TerminalApprovalListener(Terminal terminal, ResourceLoader resourceLoader, 
-                                    TemplateExecutor templateExecutor, AgentPlatform platform) {
+                                    TemplateExecutor templateExecutor, AgentPlatform platform,
+                                    ComponentFlow.Builder componentFlowBuilder) {
         this.terminal = terminal;
         this.resourceLoader = resourceLoader;
         this.templateExecutor = templateExecutor;
         this.platform = platform;
+        this.componentFlowBuilder = componentFlowBuilder;
     }
 
     // Required to signal the agent to wake up after injecting data
@@ -68,15 +73,23 @@ public class TerminalApprovalListener {
         terminal.writer().println("========================================");
         terminal.writer().flush();
 
-        // 1. Show Y/N confirmation using Spring Shell UI
-        ConfirmationInput input = new ConfirmationInput(terminal, "Approve this plan?", true);
-        input.setResourceLoader(resourceLoader);
-        input.setTemplateExecutor(templateExecutor);
+        // 1. Show Approve/Reject selection using ComponentFlow
+        ComponentFlow flow = componentFlowBuilder.clone().reset()
+                .withSingleItemSelector("decision")
+                    .name("Approve this plan?")
+                    .selectItems(Arrays.asList(
+                            SelectItem.of("Approve", "true"),
+                            SelectItem.of("Reject", "false")
+                    ))
+                    .and()
+                .build();
         
-        Boolean approved = input.run(ConfirmationInput.ConfirmationInputContext.empty()).getResultValue();
+        ComponentFlow.ComponentFlowResult result = flow.run();
+        String decisionStr = result.getContext().get("decision");
+        boolean approved = Boolean.parseBoolean(decisionStr);
 
         String comment = "Approved via shell";
-        if (Boolean.FALSE.equals(approved)) {
+        if (!approved) {
             // 2. If rejected, ask for a reason/comment
             StringInput commentInput = new StringInput(terminal, "Reason for rejection: ", "No comment");
             commentInput.setResourceLoader(resourceLoader);
@@ -85,7 +98,7 @@ public class TerminalApprovalListener {
         }
 
         // 3. Inject the decision directly into the waiting agent's blackboard
-        process.getBlackboard().addObject(new ApprovalDecision(approved != null && approved, comment));
+        process.getBlackboard().addObject(new ApprovalDecision(approved, comment));
         
         // 4. Send a signal (UserMessage) to the session or explicitly run the process to wake up the planner
         if (currentSession != null) {
