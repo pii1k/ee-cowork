@@ -15,6 +15,7 @@ embabel-agent-api/src/main/resources/mcp/**
 **/*.log
 .shell.log*
 *.log.gz
+.chatbot_history
 knowledge/.DS_Store
 output/
 **/.DS_Store

@@ -15,6 +15,8 @@ import org.springframework.shell.standard.ShellMethod;
 import org.springframework.shell.standard.ShellOption;
 import org.jline.terminal.Terminal;
 
+import java.nio.file.Paths;
+
 @ShellComponent
 public class ChatbotCommand {
 
@@ -31,8 +33,10 @@ public class ChatbotCommand {
 
     @ShellMethod(value = "Enter interactive chat mode.", key = {"ask-mode", "chat"})
     public void chatMode() {
+        // Build LineReader with persistent history file support
         LineReader reader = LineReaderBuilder.builder()
                 .terminal(terminal)
+                .variable(LineReader.HISTORY_FILE, Paths.get(".chatbot_history"))
                 .build();
 
         // Styled prompt: Bold Cyan "> "
