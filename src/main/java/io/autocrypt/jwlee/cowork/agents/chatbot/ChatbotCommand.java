@@ -4,6 +4,10 @@ import com.embabel.chat.ChatSession;
 import com.embabel.chat.Chatbot;
 import com.embabel.chat.UserMessage;
 import com.embabel.agent.api.channel.MessageOutputChannelEvent;
+import org.jline.reader.EndOfFileException;
+import org.jline.reader.LineReader;
+import org.jline.reader.LineReaderBuilder;
+import org.jline.reader.UserInterruptException;
 import org.springframework.shell.standard.ShellComponent;
 import org.springframework.shell.standard.ShellMethod;
 import org.springframework.shell.standard.ShellOption;
@@ -19,6 +23,34 @@ public class ChatbotCommand {
     public ChatbotCommand(Chatbot chatbot, Terminal terminal) {
         this.chatbot = chatbot;
         this.terminal = terminal;
+    }
+
+    @ShellMethod(value = "Enter interactive chat mode.", key = {"ask-mode", "chat"})
+    public void chatMode() {
+        LineReader reader = LineReaderBuilder.builder()
+                .terminal(terminal)
+                .build();
+
+        String prompt = "> ";
+        
+        while (true) {
+            String line;
+            try {
+                line = reader.readLine(prompt);
+                if (line == null || line.trim().isEmpty()) continue;
+                if (line.equalsIgnoreCase("exit") || line.equalsIgnoreCase("quit")) break;
+                
+                ask(line);
+            } catch (UserInterruptException e) {
+                // Ctrl+C: just break the loop but don't exit the app
+                break;
+            } catch (EndOfFileException e) {
+                // Ctrl+D: Exit mode and reset
+                break;
+            }
+        }
+        
+        reset();
     }
 
     @ShellMethod(value = "Ask the main orchestrator chatbot a question or give a task.", key = "ask")

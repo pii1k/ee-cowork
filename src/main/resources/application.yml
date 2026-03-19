@@ -9,7 +9,7 @@ spring:
 cli:
   ui:
     title: "JWLEE CLI"
-    help-text: "도움말은 help 입력"
+    help-text: "도움말은 help / Ctrl+D 로 종료"
     greeting: "오늘도 좋은 하루 되세요."
 
 logging:
