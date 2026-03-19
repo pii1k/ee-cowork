@@ -28,12 +28,12 @@ public class ChatbotAgent {
     }
 
     /**
-     * Tool: glob
-     * DICE: Directly exposed as a tool of this agent.
+     * Tool: writeFile
+     * Returns a structured FileResult to ensure reliable communication with the LLM.
      */
-    @LlmTool(description = "Finds files matching specific glob patterns (e.g., 'src/**/*.java'). Returns a list of relative paths.")
-    public List<String> glob(String pattern) throws IOException {
-        return coreFileTools.glob(pattern);
+    @LlmTool(description = "Writes content to a NEW file. Fails if file exists. Returns FileResult.")
+    public CoreFileTools.FileResult writeFile(String path, String content) throws IOException {
+        return coreFileTools.writeFile(path, content);
     }
 
     /**

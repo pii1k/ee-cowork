@@ -53,15 +53,17 @@ class CoreFileToolsTest {
     @Test
     void testWriteFile() throws IOException {
         String path = "temp_test_dir/new_file.txt";
-        String result = fileTools.writeFile(path, "New Content");
-        assertEquals("Successfully wrote to " + path, result);
+        CoreFileTools.FileResult result = fileTools.writeFile(path, "New Content");
+        assertEquals("SUCCESS", result.status());
+        assertTrue(result.content().contains("Successfully created"));
         assertEquals("New Content", Files.readString(Paths.get(path)));
     }
 
     @Test
     void testReplace() throws IOException {
         String path = "temp_test_dir/test.txt";
-        fileTools.replace(path, "World", "Gemini");
+        CoreFileTools.FileResult result = fileTools.replace(path, "World", "Gemini");
+        assertEquals("SUCCESS", result.status());
         assertEquals("Hello, Gemini!", Files.readString(Paths.get(path)));
     }
 
