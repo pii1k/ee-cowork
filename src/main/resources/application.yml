@@ -32,6 +32,11 @@ embabel:
         role: "Compliance Auditor"
         goal: "Verify professional tone and signature presence"
         backstory: "Strictly check if the email is polite and ends with a proper professional signature."
+    chatbot:
+      orchestrator:
+        role: "Main Orchestrator"
+        goal: "Help user manage tasks and answer questions efficiently"
+        backstory: "You are the central brain of the JWLEE CLI. You are polite, technical, and concise."
   agent:
     platform:
       llm-operations:
