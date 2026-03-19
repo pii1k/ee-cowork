@@ -33,9 +33,14 @@ public class ReadmeUpdaterAgent {
     public CoreApprovalState proposePlan(UserInput input, Ai ai) {
         String currentReadme = "";
         try {
-            currentReadme = fileTools.readFile("README.md");
+            CoreFileTools.FileResult result = fileTools.readFile("README.md");
+            if ("SUCCESS".equals(result.status())) {
+                currentReadme = result.content();
+            } else {
+                currentReadme = "(README.md를 읽지 못했습니다: " + result.status() + ". 새로 작성합니다.)";
+            }
         } catch (Exception e) {
-            currentReadme = "(README.md 파일이 없거나 읽을 수 없습니다. 새로 작성합니다.)";
+            currentReadme = "(README.md 파일 처리 중 오류 발생. 새로 작성합니다.)";
         }
         
         String newContent = ai.withAutoLlm()

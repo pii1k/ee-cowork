@@ -45,8 +45,9 @@ class CoreFileToolsTest {
 
     @Test
     void testReadFile() throws IOException {
-        String content = fileTools.readFile("temp_test_dir/test.txt");
-        assertEquals("Hello, World!", content);
+        CoreFileTools.FileResult result = fileTools.readFile("temp_test_dir/test.txt");
+        assertEquals("SUCCESS", result.status());
+        assertEquals("Hello, World!", result.content());
     }
 
     @Test
