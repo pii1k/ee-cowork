@@ -37,7 +37,7 @@ public class ChatbotAgent {
                 ? messages.subList(messages.size() - 10, messages.size()) 
                 : messages;
 
-        var response = ai.withLlmByRole("cheapest")
+        var response = ai.withLlmByRole("simple")
                 .withPromptContributor(mainOrchestratorPersona)
                 .withToolObject(coreFileTools) 
                 .respond(contextMessages);
