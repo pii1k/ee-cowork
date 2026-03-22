@@ -12,10 +12,13 @@ import org.jline.reader.LineReaderBuilder;
 import org.jline.reader.UserInterruptException;
 import org.jline.utils.AttributedString;
 import org.jline.utils.AttributedStyle;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.shell.standard.ShellComponent;
 import org.springframework.shell.standard.ShellMethod;
 import org.jline.terminal.Terminal;
 
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.Paths;
 
 @ShellComponent
@@ -26,11 +29,14 @@ public class ChatbotCommand {
     private final LocalRagTools localRagTools;
     private final TerminalSpinner spinner;
     private ChatSession currentSession;
+    private final String ragDir;
 
-    public ChatbotCommand(Chatbot chatbot, Terminal terminal, LocalRagTools localRagTools) {
+    public ChatbotCommand(Chatbot chatbot, Terminal terminal, LocalRagTools localRagTools,
+                          @Value("${app.chatbot.rag-dir:output/rag-chatbot}") String ragDir) {
         this.chatbot = chatbot;
         this.terminal = terminal;
         this.localRagTools = localRagTools;
+        this.ragDir = ragDir;
         this.spinner = new TerminalSpinner(terminal);
     }
 
@@ -38,6 +44,16 @@ public class ChatbotCommand {
     public void chatMode() {
         // Clear 'chatbot' RAG before starting (zap now handles exceptions internally)
         localRagTools.zap("chatbot");
+
+        // Auto-ingest files from the configured directory
+        Path ragPath = Paths.get(ragDir);
+        if (Files.exists(ragPath) && Files.isDirectory(ragPath)) {
+            terminal.writer().println("[System] Initializing RAG from " + ragDir + "...");
+            terminal.writer().flush();
+            localRagTools.ingestDirectory(ragDir, "chatbot");
+            terminal.writer().println("[System] Initialization complete.");
+            terminal.writer().flush();
+        }
 
         try {
             // Build LineReader with persistent history file support

@@ -63,7 +63,8 @@ public class ChatbotAgent {
         var searchOps = localRagTools.getOrOpenInstance("chatbot");
         
         // Match name 'knowledge' as instructed in application.yml persona
-        var toolishRag = new JsonSafeToolishRag("knowledge", "General knowledge base containing uploaded documents and URLs", searchOps);
+        var toolishRag = new JsonSafeToolishRag("knowledge", "General knowledge base containing uploaded documents and URLs", searchOps)
+                .withHint(TryHyDE.usingConversationContext());
         
         var response = ai.withLlmByRole("simple")
                 .withPromptContributor(mainOrchestratorPersona)

@@ -4,6 +4,7 @@ import com.embabel.agent.api.reference.LlmReference;
 import com.embabel.agent.api.tool.Tool;
 import com.embabel.agent.rag.service.SearchOperations;
 import com.embabel.agent.rag.tools.ToolishRag;
+import com.embabel.common.ai.prompt.PromptContributor;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import java.lang.reflect.InvocationHandler;
@@ -21,6 +22,14 @@ public class JsonSafeToolishRag implements LlmReference {
 
     public JsonSafeToolishRag(String name, String description, SearchOperations searchOperations) {
         this.delegate = new ToolishRag(name, description, searchOperations);
+    }
+
+    private JsonSafeToolishRag(ToolishRag delegate) {
+        this.delegate = delegate;
+    }
+
+    public JsonSafeToolishRag withHint(PromptContributor hint) {
+        return new JsonSafeToolishRag(this.delegate.withHint(hint));
     }
 
     @Override
