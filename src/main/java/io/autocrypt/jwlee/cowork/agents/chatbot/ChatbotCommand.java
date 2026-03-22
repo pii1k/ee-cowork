@@ -1,25 +1,27 @@
 package io.autocrypt.jwlee.cowork.agents.chatbot;
 
-import com.embabel.chat.ChatSession;
-import com.embabel.chat.Chatbot;
-import com.embabel.chat.UserMessage;
-import com.embabel.agent.api.channel.MessageOutputChannelEvent;
-import io.autocrypt.jwlee.cowork.core.tools.LocalRagTools;
-import io.autocrypt.jwlee.cowork.core.ui.TerminalSpinner;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+
 import org.jline.reader.EndOfFileException;
 import org.jline.reader.LineReader;
 import org.jline.reader.LineReaderBuilder;
 import org.jline.reader.UserInterruptException;
+import org.jline.terminal.Terminal;
 import org.jline.utils.AttributedString;
 import org.jline.utils.AttributedStyle;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.shell.standard.ShellComponent;
 import org.springframework.shell.standard.ShellMethod;
-import org.jline.terminal.Terminal;
 
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
+import com.embabel.agent.api.channel.MessageOutputChannelEvent;
+import com.embabel.chat.ChatSession;
+import com.embabel.chat.Chatbot;
+import com.embabel.chat.UserMessage;
+
+import io.autocrypt.jwlee.cowork.core.tools.LocalRagTools;
+import io.autocrypt.jwlee.cowork.core.ui.TerminalSpinner;
 
 @ShellComponent
 public class ChatbotCommand {
@@ -40,7 +42,7 @@ public class ChatbotCommand {
         this.spinner = new TerminalSpinner(terminal);
     }
 
-    @ShellMethod(value = "Enter interactive chat mode.", key = {"ask-mode", "chat"})
+    @ShellMethod(value = "Enter interactive chat mode.", key = {"ask", "chat"})
     public void chatMode() {
         // Clear 'chatbot' RAG before starting (zap now handles exceptions internally)
         localRagTools.zap("chatbot");
@@ -48,11 +50,7 @@ public class ChatbotCommand {
         // Auto-ingest files from the configured directory
         Path ragPath = Paths.get(ragDir);
         if (Files.exists(ragPath) && Files.isDirectory(ragPath)) {
-            terminal.writer().println("[System] Initializing RAG from " + ragDir + "...");
-            terminal.writer().flush();
             localRagTools.ingestDirectory(ragDir, "chatbot");
-            terminal.writer().println("[System] Initialization complete.");
-            terminal.writer().flush();
         }
 
         try {
