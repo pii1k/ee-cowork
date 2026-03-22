@@ -4,6 +4,7 @@ import com.embabel.chat.ChatSession;
 import com.embabel.chat.Chatbot;
 import com.embabel.chat.UserMessage;
 import com.embabel.agent.api.channel.MessageOutputChannelEvent;
+import io.autocrypt.jwlee.cowork.core.tools.LocalRagTools;
 import io.autocrypt.jwlee.cowork.core.ui.TerminalSpinner;
 import org.jline.reader.EndOfFileException;
 import org.jline.reader.LineReader;
@@ -13,7 +14,6 @@ import org.jline.utils.AttributedString;
 import org.jline.utils.AttributedStyle;
 import org.springframework.shell.standard.ShellComponent;
 import org.springframework.shell.standard.ShellMethod;
-import org.springframework.shell.standard.ShellOption;
 import org.jline.terminal.Terminal;
 
 import java.nio.file.Paths;
@@ -23,45 +23,52 @@ public class ChatbotCommand {
 
     private final Chatbot chatbot;
     private final Terminal terminal;
+    private final LocalRagTools localRagTools;
     private final TerminalSpinner spinner;
     private ChatSession currentSession;
 
-    public ChatbotCommand(Chatbot chatbot, Terminal terminal) {
+    public ChatbotCommand(Chatbot chatbot, Terminal terminal, LocalRagTools localRagTools) {
         this.chatbot = chatbot;
         this.terminal = terminal;
+        this.localRagTools = localRagTools;
         this.spinner = new TerminalSpinner(terminal);
     }
 
     @ShellMethod(value = "Enter interactive chat mode.", key = {"ask-mode", "chat"})
     public void chatMode() {
-        // Build LineReader with persistent history file support
-        LineReader reader = LineReaderBuilder.builder()
-                .terminal(terminal)
-                .variable(LineReader.HISTORY_FILE, Paths.get(".chatbot_history"))
-                .build();
+        // Clear 'chatbot' RAG before starting (zap now handles exceptions internally)
+        localRagTools.zap("chatbot");
 
-        // Styled prompt: Bold Cyan "> "
-        String prompt = new AttributedString("> ", 
-                AttributedStyle.DEFAULT.foreground(AttributedStyle.CYAN).bold()).toAnsi();
-        
-        while (true) {
-            String line;
-            try {
-                line = reader.readLine(prompt);
-                if (line == null || line.trim().isEmpty()) continue;
-                if (line.equalsIgnoreCase("exit") || line.equalsIgnoreCase("quit")) break;
-                
-                ask(line);
-            } catch (UserInterruptException e) {
-                // Ctrl+C: just break the loop but don't exit the app
-                break;
-            } catch (EndOfFileException e) {
-                // Ctrl+D: Exit mode and reset
-                break;
+        try {
+            // Build LineReader with persistent history file support
+            LineReader reader = LineReaderBuilder.builder()
+                    .terminal(terminal)
+                    .variable(LineReader.HISTORY_FILE, Paths.get(".chatbot_history"))
+                    .build();
+
+            // Styled prompt: Bold Cyan "> "
+            String prompt = new AttributedString("> ", 
+                    AttributedStyle.DEFAULT.foreground(AttributedStyle.CYAN).bold()).toAnsi();
+            
+            while (true) {
+                String line;
+                try {
+                    line = reader.readLine(prompt);
+                    if (line == null || line.trim().isEmpty()) continue;
+                    if (line.equalsIgnoreCase("exit") || line.equalsIgnoreCase("quit")) break;
+                    
+                    ask(line);
+                } catch (UserInterruptException e) {
+                    break;
+                } catch (EndOfFileException e) {
+                    break;
+                }
             }
+        } finally {
+            // Clear 'chatbot' RAG after session ends
+            localRagTools.zap("chatbot");
+            reset();
         }
-        
-        reset();
     }
 
     /**

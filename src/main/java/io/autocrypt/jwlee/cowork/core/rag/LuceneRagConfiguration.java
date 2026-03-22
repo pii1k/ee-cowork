@@ -5,6 +5,7 @@ import com.embabel.common.ai.model.ModelSelectionCriteria;
 import com.embabel.agent.rag.service.SearchOperations;
 import com.embabel.agent.rag.lucene.LuceneSearchOperations;
 import com.embabel.agent.rag.tools.ToolishRag;
+import io.autocrypt.jwlee.cowork.core.workaround.JsonSafeToolishRag;
 import com.embabel.agent.rag.ingestion.transform.AddTitlesChunkTransformer;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
@@ -44,9 +45,9 @@ public class LuceneRagConfiguration {
     @Bean(name = "luceneRagTool")
     @Primary
     @ConditionalOnBean(name = "luceneSearch")
-    public ToolishRag luceneRagTool(Optional<SearchOperations> luceneSearch) {
+    public JsonSafeToolishRag luceneRagTool(Optional<SearchOperations> luceneSearch) {
         return luceneSearch
-                .map(search -> new ToolishRag("rca_sources", "Technical documents for RCA", search))
+                .map(search -> new JsonSafeToolishRag("rca_sources", "Technical documents for RCA", search))
                 .orElse(null);
     }
 }

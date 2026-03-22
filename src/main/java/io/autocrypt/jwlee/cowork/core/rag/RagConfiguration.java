@@ -4,6 +4,7 @@ import com.embabel.agent.rag.service.RagServiceEnhancerProperties;
 import com.embabel.agent.rag.service.SearchOperations;
 import com.embabel.agent.rag.service.support.DirectoryTextSearch;
 import com.embabel.agent.rag.tools.ToolishRag;
+import io.autocrypt.jwlee.cowork.core.workaround.JsonSafeToolishRag;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
@@ -25,7 +26,7 @@ public class RagConfiguration {
     }
 
     @Bean(name = "directoryRagTool")
-    public ToolishRag localKnowledgeTool(@Qualifier("directorySearch") SearchOperations directorySearch) {
-        return new ToolishRag("local_knowledge", "Simple directory-based text search (Legacy)", directorySearch);
+    public JsonSafeToolishRag localKnowledgeTool(@Qualifier("directorySearch") SearchOperations directorySearch) {
+        return new JsonSafeToolishRag("local_knowledge", "Simple directory-based text search (Legacy)", directorySearch);
     }
 }
