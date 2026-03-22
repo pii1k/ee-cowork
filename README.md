@@ -77,6 +77,25 @@ PDF 기술 문서를 읽고 전문 용어를 유지하며 마크다운 형식으
   > translate-start --pdf-path "my_doc.pdf" --workspace-name "ws_01"
   ```
 
+### 3. 프리세일즈 분석 에이전트 (presales)
+고객 요구사항(이메일 등)을 분석하여 기술 요구사항 명세(CRS)를 작성하고, 제품 사양과의 Gap 및 공수(M/M)를 산출합니다.
+- **주요 특징**: 
+    - **다중 RAG 활용**: 기술 표준(`tech-ref`)과 제품 사양(`product-spec`) 지식 베이스를 물리적으로 분리 참조하여 분석 정확도 극대화.
+    - **파일 기반 워크플로우**: 단계별 결과물을 마크다운(`crs.md`, `analysis.md` 등)으로 저장하여 사용자의 직접 검토 및 수정 지원.
+    - **수정 후 재개(Resume)**: 사용자가 기술 요구사항(CRS)을 직접 교정한 뒤, 해당 지점부터 분석을 재실행하여 결과물 갱신 가능.
+- **실행 방법**:
+  ```bash
+  # 1. 지식 베이스 구축 (RAG 인제스트)
+  > presales-ingest --type TECH --path "standards_dir"
+  > presales-ingest --type PRODUCT --path "specs_dir"
+
+  # 2. 분석 시작 (CRS 추출부터 최종 리포트까지 자동 실행)
+  > presales-start --email-path "email.txt" --ws "ws_01"
+
+  # 3. (선택 사항) crs.md 수정 후 분석 결과만 갱신
+  > presales-resume --ws "ws_01"
+  ```
+
 ---
 
 ## 🧑‍💻 나만의 에이전트 추가하기 (Developer Guide)

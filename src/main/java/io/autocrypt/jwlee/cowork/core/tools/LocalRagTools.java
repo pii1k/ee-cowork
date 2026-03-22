@@ -41,14 +41,21 @@ public class LocalRagTools {
     }
 
     /**
-     * Gets an existing Lucene instance or creates a new one.
+     * Gets an existing Lucene instance or creates a new one at the default location.
      */
     public synchronized LuceneSearchOperations getOrOpenInstance(String ragName) throws IOException {
-        if (activeInstances.containsKey(ragName)) {
-            return activeInstances.get(ragName);
+        return getOrOpenInstance(ragName, resolveIndexPath(ragName));
+    }
+
+    /**
+     * Gets an existing Lucene instance or creates a new one at a specific path.
+     */
+    public synchronized LuceneSearchOperations getOrOpenInstance(String ragName, Path indexPath) throws IOException {
+        String key = indexPath.toAbsolutePath().normalize().toString();
+        if (activeInstances.containsKey(key)) {
+            return activeInstances.get(key);
         }
 
-        Path indexPath = resolveIndexPath(ragName);
         Files.createDirectories(indexPath);
         var embeddingService = modelProvider.getEmbeddingService(ModelSelectionCriteria.getAuto());
         
@@ -59,7 +66,7 @@ public class LocalRagTools {
                 .withChunkTransformer(AddTitlesChunkTransformer.INSTANCE)
                 .buildAndLoadChunks();
         
-        activeInstances.put(ragName, lucene);
+        activeInstances.put(key, lucene);
         return lucene;
     }
 
@@ -67,13 +74,101 @@ public class LocalRagTools {
      * Closes a managed Lucene instance.
      */
     public synchronized void closeInstance(String ragName) {
-        var lucene = activeInstances.remove(ragName);
+        closeInstanceByPath(resolveIndexPath(ragName));
+    }
+
+    /**
+     * Closes a managed Lucene instance by its path.
+     */
+    public synchronized void closeInstanceByPath(Path indexPath) {
+        String key = indexPath.toAbsolutePath().normalize().toString();
+        var lucene = activeInstances.remove(key);
         if (lucene != null) {
             try {
                 lucene.close();
             } catch (Exception e) {
-                logger.error("Error closing Lucene instance for {}", ragName, e);
+                logger.error("Error closing Lucene instance at {}", indexPath, e);
             }
+        }
+    }
+
+    /**
+     * Ingests a URL or file into a specified RAG index.
+     */
+    public String ingestUrl(String location, String ragName) {
+        return ingestUrlAt(location, ragName, resolveIndexPath(ragName));
+    }
+
+    /**
+     * Ingests a URL or file into a specified RAG index path.
+     */
+    public String ingestUrlAt(String location, String ragName, Path indexPath) {
+        try {
+            var uri = location.startsWith("http://") || location.startsWith("https://")
+                    ? location
+                    : Path.of(location).toAbsolutePath().toUri().toString();
+
+            var lucene = getOrOpenInstance(ragName, indexPath);
+            var ingested = NeverRefreshExistingDocumentContentPolicy.INSTANCE
+                    .ingestUriIfNeeded(lucene, new TikaHierarchicalContentReader(), uri);
+
+            return ingested != null ? "SUCCESS: Ingested document ID " + ingested.getId() : "Document already exists.";
+        } catch (Exception e) {
+            logger.error("Ingestion failed for {} at {}", location, indexPath, e);
+            return "ERROR: Ingestion failed: " + e.getMessage();
+        }
+    }
+
+    /**
+     * Ingests all files in a directory into a specified RAG index.
+     */
+    public String ingestDirectory(String directoryPath, String ragName) {
+        return ingestDirectoryAt(directoryPath, ragName, resolveIndexPath(ragName));
+    }
+
+    /**
+     * Ingests all files in a directory into a specified RAG index path.
+     */
+    public String ingestDirectoryAt(String directoryPath, String ragName, Path indexPath) {
+        try {
+            Path dir = Path.of(directoryPath).toAbsolutePath();
+            if (!Files.isDirectory(dir)) return "Error: Not a directory.";
+
+            var lucene = getOrOpenInstance(ragName, indexPath);
+            int count = 0;
+            try (Stream<Path> paths = Files.walk(dir)) {
+                List<Path> files = paths.filter(Files::isRegularFile).toList();
+                for (Path file : files) {
+                    var uri = file.toUri().toString();
+                    if (NeverRefreshExistingDocumentContentPolicy.INSTANCE.ingestUriIfNeeded(
+                            lucene, new TikaHierarchicalContentReader(), uri) != null) {
+                        count++;
+                    }
+                }
+            }
+            return "SUCCESS: Ingested " + count + " documents.";
+        } catch (Exception e) {
+            logger.error("Directory ingestion failed for {} at {}", directoryPath, indexPath, e);
+            return "ERROR: Directory ingestion failed: " + e.getMessage();
+        }
+    }
+
+    /**
+     * Clears and deletes the specified RAG index.
+     */
+    public void zap(String ragName) {
+        zapAt(resolveIndexPath(ragName));
+    }
+
+    /**
+     * Clears and deletes the specified RAG index by its path.
+     */
+    public void zapAt(Path indexPath) {
+        try {
+            closeInstanceByPath(indexPath);
+            deleteRecursively(indexPath);
+        } catch (Exception e) {
+            logger.error("Zap failed at {}", indexPath, e);
         }
     }
 
@@ -89,66 +184,6 @@ public class LocalRagTools {
                         }
                     });
             }
-        }
-    }
-
-    /**
-     * Ingests a URL or file into a specified RAG index.
-     */
-    public String ingestUrl(String location, String ragName) {
-        try {
-            var uri = location.startsWith("http://") || location.startsWith("https://")
-                    ? location
-                    : Path.of(location).toAbsolutePath().toUri().toString();
-
-            var lucene = getOrOpenInstance(ragName);
-            var ingested = NeverRefreshExistingDocumentContentPolicy.INSTANCE
-                    .ingestUriIfNeeded(lucene, new TikaHierarchicalContentReader(), uri);
-
-            return ingested != null ? "SUCCESS: Ingested document ID " + ingested.getId() : "Document already exists.";
-        } catch (Exception e) {
-            logger.error("Ingestion failed for {}", location, e);
-            return "ERROR: Ingestion failed: " + e.getMessage();
-        }
-    }
-
-    /**
-     * Ingests all files in a directory into a specified RAG index.
-     */
-    public String ingestDirectory(String directoryPath, String ragName) {
-        try {
-            Path dir = Path.of(directoryPath).toAbsolutePath();
-            if (!Files.isDirectory(dir)) return "Error: Not a directory.";
-
-            var lucene = getOrOpenInstance(ragName);
-            int count = 0;
-            try (Stream<Path> paths = Files.walk(dir)) {
-                List<Path> files = paths.filter(Files::isRegularFile).toList();
-                for (Path file : files) {
-                    var uri = file.toUri().toString();
-                    if (NeverRefreshExistingDocumentContentPolicy.INSTANCE.ingestUriIfNeeded(
-                            lucene, new TikaHierarchicalContentReader(), uri) != null) {
-                        count++;
-                    }
-                }
-            }
-            return "SUCCESS: Ingested " + count + " documents.";
-        } catch (Exception e) {
-            logger.error("Directory ingestion failed for {}", directoryPath, e);
-            return "ERROR: Directory ingestion failed: " + e.getMessage();
-        }
-    }
-
-    /**
-     * Clears and deletes the specified RAG index.
-     */
-    public void zap(String ragName) {
-        try {
-            closeInstance(ragName);
-            Path indexPath = resolveIndexPath(ragName);
-            deleteRecursively(indexPath);
-        } catch (Exception e) {
-            logger.error("Zap failed for {}", ragName, e);
         }
     }
 
