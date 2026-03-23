@@ -15,7 +15,6 @@ import com.embabel.agent.api.annotation.Action;
 import com.embabel.agent.api.annotation.Agent;
 import com.embabel.agent.api.annotation.State;
 import com.embabel.agent.api.common.ActionContext;
-import com.embabel.chat.AssistantMessage;
 
 import io.autocrypt.jwlee.cowork.core.hitl.ApplicationContextHolder;
 import io.autocrypt.jwlee.cowork.core.hitl.NotificationEvent;
@@ -160,6 +159,9 @@ public class AnkiAgent {
                             - **0.3 - 0.5 (Secondary):** Minor fields, specific parameters, or non-essential sub-components.
                             - **0.1 - 0.2 (Trivial):** Common IT words, repetitive boilerplate, or niche details.
 
+                            # DOCUMENT SUMMARY (Use this for scoring)
+                            %s
+
                             # DOCUMENT SEGMENT (%d/%d)
                             %s
 
@@ -172,7 +174,7 @@ public class AnkiAgent {
                             3. Return a list of terms with their scores.
                             4. Format: "English Term (Korean Translation)".
                             5. <example>{"term": "Digital Signature (디지털 서명)", "score": 0.95}</example>
-                            """, chunkIdx + 1, chunks.size(), chunk, existingTermsSample));            
+                            """, state.overview().summary(), chunkIdx + 1, chunks.size(), chunk, existingTermsSample));            
             if (newScoredTerms.terms() != null) {
                 int addedCount = 0;
                 for (ScoredTerm st : newScoredTerms.terms()) {
@@ -240,6 +242,9 @@ public class AnkiAgent {
                         .fromPrompt(String.format("""
                         # TASK
                         Provide clear, concise Korean definitions for these terms.
+
+                        # DOCUMENT OVERVIEW
+                        %s
                         
                         # TERMS
                         %s
@@ -248,7 +253,7 @@ public class AnkiAgent {
                         1. Definition must be for Anki flashcards.
                         2. Keep term: "English Term (Korean Translation)".
                         3. <example>Term: Cryptographic Algorithm (암호화 알고리즘) -> Definition: 데이터를 안전하게 보호하기 위해 사용되는 수학적 절차.</example>
-                        """, String.join(", ", batch)));
+                        """, state.overview().summary(), String.join(", ", batch)));
                 
                 if (definedBatch.cards() != null) {
                     finalCards.addAll(definedBatch.cards());
