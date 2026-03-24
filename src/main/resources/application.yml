@@ -17,8 +17,8 @@ logging:
     name: .shell.log
   level:
     root: INFO
-    org.springframework.shell: DEBUG
-    com.embabel: DEBUG
+    org.springframework.shell: INFO
+    com.embabel: INFO
     org.apache.lucene: WARN
 
 embabel:
@@ -63,6 +63,14 @@ presentation:
       path: /Users/jwlee/Documents/obsidian/+Encounters/presentation_test.md
 
 app:
+  obsidian:
+    vault-path: obsidian-vault
+    repo-url: https://github.com/woojung3/obsidian
+  integration:
+    google:
+      client-id: ${GOOGLE_CLIENT_ID:}
+      client-secret: ${GOOGLE_CLIENT_SECRET:}
+      refresh-token: ${GOOGLE_REFRESH_TOKEN:}
   chatbot:
     rag-dir: "output/rag-chatbot"
   confluence:

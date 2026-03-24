@@ -53,6 +53,16 @@ export GEMINI_API_KEY="your-api-key"
 
 실행 후 `>` 프롬프트가 나타나면 명령어 입력을 대기합니다.
 
+### 3. 비대화형(Non-interactive) 모드 실행 (자동화)
+에이전트 명령어를 자동화 도구(Cron 등)에 등록할 때 사용합니다. `cron` 프로파일(`application-cron.yml`)을 활성화하면 셸 진입 없이 명령을 즉시 수행하고 종료합니다.
+
+- **실행 방법**:
+  ```bash
+  # 'cron' 프로파일을 포함하여 단일 명령어 실행
+  ./mvnw spring-boot:run -Dspring-boot.run.profiles=gemini -Dspring-boot.run.arguments="obsidian-daily" -Dspring.profiles.include=cron
+  ```
+- **전용 스크립트 활용**: `scripts/jwlee-cowork.sh`를 사용하면 환경 변수(`SPRING_PROFILES_INCLUDE=cron`) 설정을 통해 더 간편하게 자동화를 구현할 수 있습니다.
+
 ---
 
 ## 💡 사용 가능한 에이전트 (Available Agents)
@@ -109,6 +119,23 @@ PDF 기술 문서를 읽고 전문 용어를 유지하며 마크다운 형식으
   ```bash
   # PDF 또는 마크다운 문서로부터 Anki 카드(CSV) 생성
   > anki-gen --filePath "document.pdf" --wsName "k8s_study"
+  ```
+
+### 5. Obsidian 노트 관리 에이전트 (obsidian)
+Obsidian 보관소(Vault)와 연동하여 일일/주간 노트를 자동으로 생성하고 관리합니다.
+- **주요 특징**:
+    - **Google Tasks 연동**: Google Tasks의 '일반' 리스트에서 할 일을 가져와 데일리 노트에 포함합니다.
+    - **연속성 유지**: 이전 날짜의 미완료 태스크(`- [ ]`)를 자동으로 추출하여 오늘 할 일로 이관합니다.
+    - **주간 요약**: 한 주(월~금) 동안 작성된 데일리 노트를 분석하여 위클리 리포트를 생성합니다.
+    - **Git 자동 동기화**: 문서 생성 후 Vault의 변경사항을 원격 저장소에 자동으로 커밋 및 푸시합니다.
+    - **안전 장치**: 이미 동일한 날짜나 주차의 문서가 존재할 경우 기존 문서를 덮어쓰지 않고 종료합니다.
+- **실행 방법**:
+  ```bash
+  # 오늘자 데일리 노트 생성
+  > obsidian-daily
+
+  # 이번 주 위클리 노트 생성
+  > obsidian-weekly
   ```
 
 ---

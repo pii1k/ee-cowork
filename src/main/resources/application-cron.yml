@@ -1,0 +1,8 @@
+spring:
+  shell:
+    interactive:
+      enabled: false
+    noninteractive:
+      enabled: true
+    context:
+      close: true
