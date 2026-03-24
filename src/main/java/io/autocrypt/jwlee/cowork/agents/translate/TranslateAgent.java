@@ -16,13 +16,14 @@ import com.embabel.agent.api.common.ActionContext;
 import com.embabel.agent.api.common.Ai;
 import com.embabel.agent.core.hitl.WaitFor;
 import com.embabel.agent.prompt.persona.RoleGoalBackstory;
-import io.autocrypt.jwlee.cowork.core.tools.PdfParser;
+import com.embabel.common.ai.model.LlmOptions;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import io.autocrypt.jwlee.cowork.core.hitl.ApplicationContextHolder;
 import io.autocrypt.jwlee.cowork.core.hitl.ApprovalDecision;
 import io.autocrypt.jwlee.cowork.core.hitl.ApprovalRequestedEvent;
 import io.autocrypt.jwlee.cowork.core.hitl.NotificationEvent;
+import io.autocrypt.jwlee.cowork.core.tools.PdfParser;
 
 @Agent(description = "PDF 전문 번역 에이전트")
 @Component
@@ -183,7 +184,7 @@ public class TranslateAgent {
                         수정된 JSON 결과를 생성하세요.
                         """, decision.comment(), context.summary(), context.glossary(), context.boilerplatePatterns());
                     
-                    DocumentContext revised = ai.withLlmByRole("normal")
+                    DocumentContext revised = ai.withLlm(LlmOptions.withLlmForRole("normal").withoutThinking())
                         .creating(DocumentContext.class).fromPrompt(prompt);
                     
                     return new ReviewGlossaryState(wsPath, revised, workspace, parser, objectMapper, translatorPersona);
@@ -318,7 +319,7 @@ public class TranslateAgent {
                     Provide ONLY the translated markdown text.
                     """, context.summary(), context.glossary(), previousContext, sourceChunk);
 
-                String translated = ai.withLlmByRole("normal")
+                String translated = ai.withLlm(LlmOptions.withLlmForRole("normal").withoutThinking())
                     .withPromptContributor(translatorPersona)
                     .generateText(prompt);
 
