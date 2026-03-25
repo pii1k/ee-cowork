@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>프롬프트 평가 리포트</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 40px; background-color: #f8f9fa; }
+        .container { max-width: 1200px; margin: auto; background: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        h1 { color: #333; border-bottom: 2px solid #007bff; padding-bottom: 10px; }
+        .summary { background: #e9ecef; padding: 20px; border-radius: 5px; margin-bottom: 30px; display: flex; align-items: center; }
+        .summary-item { margin-right: 40px; }
+        .score-box { font-size: 2em; font-weight: bold; color: #007bff; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { padding: 12px; border: 1px solid #dee2e6; text-align: left; vertical-align: top; }
+        th { background-color: #007bff; color: white; }
+        tr:nth-child(even) { background-color: #f2f2f2; }
+        .score-cell { font-weight: bold; text-align: center; }
+        .reason-cell { font-size: 0.9em; color: #555; white-space: pre-wrap; }
+        .inquiry-cell { font-weight: 500; color: #333; }
+        .badge { padding: 5px 10px; border-radius: 4px; font-size: 0.85em; margin-bottom: 5px; display: inline-block; }
+        .badge-strength { background: #d4edda; color: #155724; }
+        .badge-weakness { background: #f8d7da; color: #721c24; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1>프롬프트 평가 리포트: PresalesAgent CRS Generation</h1>
+    
+    <div class="summary">
+        <div class="summary-item">
+            <div>평균 점수</div>
+            <div class="score-box">{{ "%.2f"|format(averageScore) }} / 10.0</div>
+        </div>
+        <div class="summary-item">
+            <div>테스트 케이스 수</div>
+            <div style="font-size: 1.5em; font-weight: bold;">{{ results|length }} 개</div>
+        </div>
+    </div>
+
+    <table>
+        <thead>
+            <tr>
+                <th style="width: 25%;">평가 대상 프롬프트 (Inquiry)</th>
+                <th style="width: 8%;">점수</th>
+                <th style="width: 42%;">평가 사유 (Reasoning)</th>
+                <th style="width: 25%;">강점 및 약점</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in results %}
+            <tr>
+                <td class="inquiry-cell">{{ item.inquiry }}</td>
+                <td class="score-cell">{{ item.grade.score }}</td>
+                <td class="reason-cell">{{ item.grade.reasoning }}</td>
+                <td>
+                    <div class="badge badge-strength">강점</div>
+                    <div class="reason-cell" style="margin-bottom: 10px;">{{ item.grade.strengths }}</div>
+                    <div class="badge badge-weakness">약점</div>
+                    <div class="reason-cell">{{ item.grade.weaknesses }}</div>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+</body>
+</html>

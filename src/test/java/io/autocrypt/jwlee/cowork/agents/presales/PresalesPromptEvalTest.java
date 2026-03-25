@@ -1,6 +1,10 @@
 package io.autocrypt.jwlee.cowork.agents.presales;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -13,6 +17,7 @@ import org.springframework.core.io.ClassPathResource;
 import com.embabel.agent.api.common.Ai;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.hubspot.jinjava.Jinjava;
 
 import io.autocrypt.jwlee.cowork.core.eval.ModelGrader;
 import io.autocrypt.jwlee.cowork.core.prompts.PromptProvider;
@@ -33,8 +38,10 @@ public class PresalesPromptEvalTest extends BaseIntegrationTest {
     private Ai ai;
 
     private final ObjectMapper objectMapper = new ObjectMapper();
+    private final Jinjava jinjava = new Jinjava();
 
     public record TestCase(String inquiry) {}
+    public record EvalResultEntry(String inquiry, ModelGrader.EvalResult grade) {}
 
     @Test
     public void evaluateCrsGenerationPrompt() throws IOException {
@@ -44,7 +51,7 @@ public class PresalesPromptEvalTest extends BaseIntegrationTest {
             new TypeReference<List<TestCase>>() {}
         );
 
-        List<ModelGrader.EvalResult> results = new ArrayList<>();
+        List<EvalResultEntry> results = new ArrayList<>();
 
         log.info("Starting Prompt Evaluation for PresalesAgent CRS Generation...");
 
@@ -61,21 +68,55 @@ public class PresalesPromptEvalTest extends BaseIntegrationTest {
 
             // 4. Grade the result
             ModelGrader.EvalResult grade = modelGrader.grade(tc.inquiry(), output);
-            results.add(grade);
+            results.add(new EvalResultEntry(tc.inquiry(), grade));
 
-            log.info("Test Case: {}", tc.inquiry());
-            log.info("Score: {}", grade.score());
-            log.info("Reasoning: {}", grade.reasoning());
-            log.info("Strengths: {}", grade.strengths());
-            log.info("Weaknesses: {}", grade.weaknesses());
-            log.info("--------------------------------------------------");
+            log.info("Finished Test Case: {} (Score: {})", tc.inquiry(), grade.score());
         }
 
-        // 5. Final Report
-        double averageScore = results.stream().mapToDouble(ModelGrader.EvalResult::score).average().orElse(0.0);
+        // 5. Generate HTML Report
+        double averageScore = results.stream().mapToDouble(r -> r.grade().score()).average().orElse(0.0);
+        generateHtmlReport(results, averageScore);
+
         log.info("==================================================");
-        log.info("FINAL EVALUATION REPORT");
+        log.info("FINAL EVALUATION REPORT GENERATED");
         log.info("Average Score: {} / 10.0", String.format("%.2f", averageScore));
         log.info("==================================================");
+    }
+
+    private void generateHtmlReport(List<EvalResultEntry> results, double averageScore) throws IOException {
+        // 템플릿 로드
+        String template = Files.readString(
+            Paths.get("src/test/resources/prompts/eval/report-template.jinja"), 
+            StandardCharsets.UTF_8
+        );
+
+        // Record를 Jinjava가 읽을 수 있는 Map 리스트로 변환
+        List<Map<String, Object>> mapResults = results.stream()
+            .map(r -> Map.<String, Object>of(
+                "inquiry", r.inquiry(),
+                "grade", Map.of(
+                    "score", r.grade().score(),
+                    "reasoning", r.grade().reasoning(),
+                    "strengths", r.grade().strengths(),
+                    "weaknesses", r.grade().weaknesses()
+                )
+            ))
+            .toList();
+
+        // 데이터 바인딩
+        Map<String, Object> context = Map.of(
+            "results", mapResults,
+            "averageScore", averageScore
+        );
+
+        // 렌더링
+        String html = jinjava.render(template, context);
+
+        // 파일 저장
+        Path outputPath = Paths.get("output/eval/presales-report.html");
+        Files.createDirectories(outputPath.getParent());
+        Files.writeString(outputPath, html, StandardCharsets.UTF_8);
+
+        log.info("HTML Report saved to: {}", outputPath.toAbsolutePath());
     }
 }

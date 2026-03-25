@@ -16,6 +16,10 @@ import org.springframework.util.StreamUtils;
 import com.hubspot.jinjava.Jinjava;
 import com.embabel.agent.prompt.persona.RoleGoalBackstory;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+
 /**
  * PromptProvider responsible for loading and rendering prompts from resources.
  * Supports .jinja for dynamic templates and .md/.txt for static prompts.
@@ -26,6 +30,9 @@ public class PromptProvider {
 
     private static final Logger log = LoggerFactory.getLogger(PromptProvider.class);
     private final Jinjava jinjava = new Jinjava();
+    private final ObjectMapper objectMapper = new ObjectMapper()
+            .registerModule(new JavaTimeModule())
+            .configure(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS, false);
     private static final String PROMPT_BASE_PATH = "prompts/";
 
     /**
@@ -39,12 +46,30 @@ public class PromptProvider {
         try {
             String content = loadResource(fullPath);
             if (path.endsWith(".jinja")) {
-                return jinjava.render(content, params != null ? params : Collections.emptyMap());
+                Map<String, Object> safeParams = convertRecordsToMaps(params);
+                return jinjava.render(content, safeParams != null ? safeParams : Collections.emptyMap());
             }
             return content;
         } catch (IOException e) {
             log.error("Failed to load prompt from path: {}", fullPath, e);
             throw new RuntimeException("Prompt not found: " + fullPath, e);
+        }
+    }
+
+    /**
+     * Converts any objects (including Records) in the params map to nested Maps 
+     * that Jinjava can easily navigate.
+     */
+    @SuppressWarnings("unchecked")
+    private Map<String, Object> convertRecordsToMaps(Map<String, Object> params) {
+        if (params == null || params.isEmpty()) return params;
+        try {
+            // Jackson은 Record를 JSON 노드로 변환할 때 필드 이름을 그대로 사용하므로, 
+            // 이를 다시 Map으로 변환하면 Jinjava가 읽을 수 있는 형태가 됩니다.
+            return objectMapper.convertValue(params, Map.class);
+        } catch (Exception e) {
+            log.warn("Failed to pre-process prompt params for Jinjava, using original params", e);
+            return params;
         }
     }
 
