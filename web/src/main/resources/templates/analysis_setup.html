@@ -108,7 +108,11 @@
                 <span class="material-symbols-outlined text-xl" style='font-variation-settings: "FILL" 1;'>analytics</span>
                 <span>Analysis Setup</span>
             </a>
-            <a href="#" class="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:bg-surface-container rounded-xl font-medium transition-all group">
+            <a th:href="@{/presales/report}" class="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:bg-surface-container rounded-xl font-medium transition-all group">
+                <span class="material-symbols-outlined text-xl">assignment_turned_in</span>
+                <span>Prompt Eval Report</span>
+            </a>
+            <a href="#" class="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:bg-surface-container rounded-xl font-medium transition-all group opacity-50 cursor-not-allowed">
                 <span class="material-symbols-outlined text-xl">history</span>
                 <span>History</span>
             </a>
@@ -128,9 +132,31 @@
     <main class="flex-1 overflow-y-auto p-8 lg:p-12 relative">
         <header class="mb-12">
             <h2 class="font-headline text-4xl font-extrabold text-on-surface tracking-tight mb-2">Configure Analysis</h2>
-            <p class="text-on-surface-variant max-w-2xl leading-relaxed">
-                Upload technical standards and product specifications to prepare the AI knowledge base. Then, provide the customer inquiry to begin the gap analysis.
-            </p>
+            <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+                <p class="text-on-surface-variant max-w-2xl leading-relaxed">
+                    Upload technical standards and product specifications to prepare the AI knowledge base. Then, provide the customer inquiry to begin the gap analysis.
+                </p>
+                <!-- Quick Start Samples -->
+                <div class="flex flex-col gap-2 shrink-0">
+                    <p class="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant/60 px-1 flex items-center gap-1">
+                        <span class="material-symbols-outlined text-xs">download</span> Quick Start Samples
+                    </p>
+                    <div class="flex gap-2">
+                        <a href="/samples/prod_spec.md" download class="flex items-center gap-2 px-3 py-1.5 bg-surface-container-high hover:bg-surface-container-highest rounded-lg border border-outline-variant/20 transition-all group">
+                            <span class="material-symbols-outlined text-xs text-primary">inventory_2</span>
+                            <span class="text-[11px] font-bold">Prod Spec</span>
+                        </a>
+                        <a href="/samples/tech_spec.md" download class="flex items-center gap-2 px-3 py-1.5 bg-surface-container-high hover:bg-surface-container-highest rounded-lg border border-outline-variant/20 transition-all group">
+                            <span class="material-symbols-outlined text-xs text-secondary">folder_managed</span>
+                            <span class="text-[11px] font-bold">Tech Spec</span>
+                        </a>
+                        <a href="/samples/customer_inquiry.md" download class="flex items-center gap-2 px-3 py-1.5 bg-surface-container-high hover:bg-surface-container-highest rounded-lg border border-outline-variant/20 transition-all group">
+                            <span class="material-symbols-outlined text-xs text-tertiary">chat_bubble</span>
+                            <span class="text-[11px] font-bold">Inquiry</span>
+                        </a>
+                    </div>
+                </div>
+            </div>
         </header>
 
         <!-- Bento Grid -->

@@ -66,4 +66,9 @@ public class PresalesWebController {
             return "analysis_setup";
         }
     }
+
+    @GetMapping("/report")
+    public String report() {
+        return "eval_report";
+    }
 }

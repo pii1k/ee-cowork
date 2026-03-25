@@ -4,9 +4,10 @@
     <meta charset="utf-8"/>
     <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
     <title>Gap Analysis &amp; Response Strategy | Presales AI</title>
-    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries,typography"></script>
     <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&amp;family=Inter:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <script id="tailwind-config">
           tailwind.config = {
             darkMode: "class",
@@ -101,6 +102,10 @@
                 <span class="material-symbols-outlined">analytics</span>
                 <span>Gap Analysis Results</span>
             </a>
+            <a th:href="@{/presales/report}" class="flex items-center space-x-3 px-3 py-2.5 rounded-lg text-[#566166] dark:text-slate-400 font-['Inter'] text-sm font-medium hover:text-[#0053db] dark:hover:text-blue-300 transition-all">
+                <span class="material-symbols-outlined">assignment_turned_in</span>
+                <span>Prompt Eval Report</span>
+            </a>
         </nav>
     </aside>
 
@@ -135,29 +140,7 @@
                         <h3 class="text-xl font-bold font-headline uppercase tracking-tight">Final Internal Review Report</h3>
                     </div>
                     <div class="bg-surface p-6 rounded-xl border border-outline-variant/10 leading-relaxed text-on-surface">
-                        <pre th:text="${result.finalReport}">Final Report Content</pre>
-                    </div>
-                </section>
-
-                <!-- Section 2: Gap Analysis -->
-                <section class="bg-surface-container-lowest p-8 rounded-2xl shadow-sm border border-outline-variant/10">
-                    <div class="flex items-center space-x-3 mb-6 text-secondary">
-                        <span class="material-symbols-outlined text-3xl">compare_arrows</span>
-                        <h3 class="text-xl font-bold font-headline uppercase tracking-tight">Gap Analysis Matrix</h3>
-                    </div>
-                    <div class="bg-surface p-6 rounded-xl border border-outline-variant/10 leading-relaxed text-on-surface">
-                        <pre th:text="${result.gapAnalysis}">Gap Analysis Content</pre>
-                    </div>
-                </section>
-
-                <!-- Section 3: Questions -->
-                <section class="bg-surface-container-lowest p-8 rounded-2xl shadow-sm border border-outline-variant/10">
-                    <div class="flex items-center space-x-3 mb-6 text-tertiary">
-                        <span class="material-symbols-outlined text-3xl">quiz</span>
-                        <h3 class="text-xl font-bold font-headline uppercase tracking-tight">Follow-up Questions</h3>
-                    </div>
-                    <div class="bg-surface p-6 rounded-xl border border-outline-variant/10 leading-relaxed text-on-surface">
-                        <pre th:text="${result.questions}">Follow-up Questions Content</pre>
+                        <div class="markdown-content prose dark:prose-invert max-w-none" th:text="${result.finalReport}">Final Report Content</div>
                     </div>
                 </section>
             </div>
@@ -170,5 +153,14 @@
             </div>
         </div>
     </main>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            document.querySelectorAll('.markdown-content').forEach(el => {
+                const rawMarkdown = el.textContent;
+                el.innerHTML = marked.parse(rawMarkdown);
+            });
+        });
+    </script>
 </body>
 </html>

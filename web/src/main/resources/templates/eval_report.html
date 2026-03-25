@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" class="light" lang="en">
+<head>
+    <meta charset="utf-8"/>
+    <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+    <title>Prompt Eval Report | Presales AI</title>
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries,typography"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&amp;family=Inter:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+    <script id="tailwind-config">
+          tailwind.config = {
+            darkMode: "class",
+            theme: {
+              extend: {
+                colors: {
+                  "primary": "#0053db",
+                  "primary-dim": "#0048c1",
+                  "on-primary": "#f8f7ff",
+                  "surface": "#f7f9fb",
+                  "on-surface": "#2a3439",
+                  "on-surface-variant": "#566166",
+                  "background": "#f7f9fb",
+                  "on-background": "#2a3439",
+                  "surface-container-low": "#f0f4f7",
+                  "surface-container": "#e8eff3",
+                  "outline-variant": "#a9b4b9",
+                },
+                fontFamily: {
+                  "headline": ["Manrope"],
+                  "body": ["Inter"],
+                },
+                borderRadius: {"DEFAULT": "0.125rem", "lg": "0.25rem", "xl": "0.5rem", "full": "0.75rem"},
+              },
+            },
+          }
+        </script>
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        h1, h2, h3 { font-family: 'Manrope', sans-serif; }
+        .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; vertical-align: middle; }
+    </style>
+</head>
+<body class="bg-background text-on-surface flex min-h-screen">
+    <!-- Sidebar -->
+    <aside class="w-64 h-screen fixed left-0 top-0 bg-surface-container-low border-r border-outline-variant/20 flex flex-col p-6 z-50">
+        <div class="mb-10">
+            <h1 class="text-xl font-extrabold text-primary tracking-tight font-headline">Presales AI</h1>
+            <p class="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest mt-1">Enterprise Dashboard</p>
+        </div>
+        <nav class="space-y-1 flex-1">
+            <a th:href="@{/presales/setup}" class="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:bg-surface-container rounded-xl font-medium transition-all group">
+                <span class="material-symbols-outlined text-xl">analytics</span>
+                <span>Analysis Setup</span>
+            </a>
+            <a href="#" class="flex items-center gap-3 px-4 py-3 bg-primary/10 text-primary rounded-xl font-bold transition-all border-r-4 border-primary">
+                <span class="material-symbols-outlined text-xl" style='font-variation-settings: "FILL" 1;'>assignment_turned_in</span>
+                <span>Prompt Eval Report</span>
+            </a>
+            <a href="#" class="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:bg-surface-container rounded-xl font-medium transition-all group opacity-50 cursor-not-allowed">
+                <span class="material-symbols-outlined text-xl">history</span>
+                <span>History</span>
+            </a>
+        </nav>
+        <div class="mt-auto pt-6 border-t border-outline-variant/20">
+            <div class="flex items-center gap-3 px-2">
+                <div class="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-on-primary font-bold text-xs">P</div>
+                <div class="flex flex-col">
+                    <span class="text-xs font-bold">Presales User</span>
+                    <span class="text-[10px] text-on-surface-variant">presales@autocrypt.io</span>
+                </div>
+            </div>
+        </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="flex-1 ml-64 p-12">
+        <header class="mb-12">
+            <div class="flex items-center space-x-2 text-primary font-bold mb-2">
+                <span class="material-symbols-outlined text-sm">verified_user</span>
+                <span class="text-xs uppercase tracking-widest">Quality Assurance</span>
+            </div>
+            <h2 class="text-4xl font-extrabold text-on-surface tracking-tight font-headline">Prompt Eval Report</h2>
+            <p class="text-on-surface-variant mt-2">Comprehensive evaluation of PresalesAgent CRS Generation performance across diverse test cases.</p>
+        </header>
+
+        <!-- Summary Cards -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
+            <div class="bg-white p-8 rounded-2xl shadow-sm border border-outline-variant/10 flex flex-col items-center">
+                <span class="text-on-surface-variant text-xs font-bold uppercase tracking-widest mb-2">Average Score</span>
+                <div class="text-5xl font-black text-primary font-headline">9.53 <span class="text-lg text-on-surface-variant/40">/ 10</span></div>
+            </div>
+            <div class="bg-white p-8 rounded-2xl shadow-sm border border-outline-variant/10 flex flex-col items-center">
+                <span class="text-on-surface-variant text-xs font-bold uppercase tracking-widest mb-2">Test Cases</span>
+                <div class="text-5xl font-black text-on-surface font-headline">3 <span class="text-lg text-on-surface-variant/40">Sets</span></div>
+            </div>
+            <div class="bg-white p-8 rounded-2xl shadow-sm border border-outline-variant/10 flex flex-col items-center">
+                <span class="text-on-surface-variant text-xs font-bold uppercase tracking-widest mb-2">Pass Rate</span>
+                <div class="text-5xl font-black text-green-600 font-headline">100<span class="text-lg text-on-surface-variant/40">%</span></div>
+            </div>
+        </div>
+
+        <!-- Evaluation Table -->
+        <div class="bg-white rounded-2xl shadow-sm border border-outline-variant/10 overflow-hidden">
+            <table class="w-full text-left border-collapse">
+                <thead class="bg-surface-container-low border-b border-outline-variant/20 text-on-surface-variant font-headline uppercase tracking-tighter text-xs">
+                    <tr>
+                        <th class="p-6 font-bold w-1/4">Inquiry</th>
+                        <th class="p-6 font-bold w-1/12 text-center">Score</th>
+                        <th class="p-6 font-bold w-5/12">Reasoning</th>
+                        <th class="p-6 font-bold w-3/12">Strengths & Weaknesses</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-outline-variant/10">
+                    <!-- Case 1 -->
+                    <tr>
+                        <td class="p-6 text-sm font-medium leading-relaxed bg-surface/30">하만에서 V2X 연동 문의가 왔습니다. 보안은 IEEE 1609.2 표준을 반드시 준수해야 하고, 서명 검증 성능이 1000 TPS 이상이어야 한다고 합니다. HSM 연동 여부도 확인해달라고 하네요.</td>
+                        <td class="p-6 text-center">
+                            <span class="inline-flex items-center justify-center w-12 h-12 bg-primary/10 text-primary font-bold rounded-full border border-primary/20">9.7</span>
+                        </td>
+                        <td class="p-6 text-xs text-on-surface-variant leading-relaxed italic prose prose-sm max-w-none">
+                            High level of technical proficiency and professional structure. Accurately captures all specific constraints—IEEE 1609.2, 1000 TPS, HSM integration—expanding with SCMS, ECDSA context. Architectural tone is consistent and lacks conversational filler. Technical depth regarding HSM interfaces (PKCS#11, SHE) indicates senior-level domain understanding.
+                        </td>
+                        <td class="p-6 space-y-4">
+                            <div class="space-y-1">
+                                <span class="px-2 py-0.5 bg-green-100 text-green-700 text-[10px] font-bold rounded uppercase tracking-wider">Strengths</span>
+                                <ul class="text-[11px] text-on-surface-variant list-disc list-inside space-y-0.5">
+                                    <li>Full compliance with IEEE 1609.2, 1000 TPS, HSM.</li>
+                                    <li>Professional CRS convention structure.</li>
+                                    <li>Clear, authoritative senior-level tone.</li>
+                                </ul>
+                            </div>
+                            <div class="space-y-1">
+                                <span class="px-2 py-0.5 bg-red-100 text-red-700 text-[10px] font-bold rounded uppercase tracking-wider">Weaknesses</span>
+                                <ul class="text-[11px] text-on-surface-variant list-disc list-inside space-y-0.5">
+                                    <li>'TPS' term is slightly generic for V2X.</li>
+                                </ul>
+                            </div>
+                        </td>
+                    </tr>
+                    <!-- Case 2 -->
+                    <tr>
+                        <td class="p-6 text-sm font-medium leading-relaxed bg-surface/30">KGM에서 신규 전기차용 PKI 인증서 관리 시스템 제안을 요청했습니다. 3GPP 표준을 따라야 하며, 인증서 발급 수량은 연간 100만 건 규모입니다. 클라우드 환경(AWS) 구축을 선호한다고 합니다.</td>
+                        <td class="p-6 text-center">
+                            <span class="inline-flex items-center justify-center w-12 h-12 bg-primary/10 text-primary font-bold rounded-full border border-primary/20">9.5</span>
+                        </td>
+                        <td class="p-6 text-xs text-on-surface-variant leading-relaxed italic prose prose-sm max-w-none">
+                            Excellent specimen of technical requirements spec. Correctly identifies 3GPP specs (TS 33.310 and 33.210). Logical structure moving from functional to non-functional constraints. Industry-standard terminology used accurately. Inclusion of HSM requirements (FIPS 140-2 Level 3) shows deep PKI security expertise.
+                        </td>
+                        <td class="p-6 space-y-4">
+                            <div class="space-y-1">
+                                <span class="px-2 py-0.5 bg-green-100 text-green-700 text-[10px] font-bold rounded uppercase tracking-wider">Strengths</span>
+                                <ul class="text-[11px] text-on-surface-variant list-disc list-inside space-y-0.5">
+                                    <li>Specific 3GPP standard citations.</li>
+                                    <li>Correct mapping to AWS services (CloudHSM, KMS).</li>
+                                    <li>Comprehensive certificate lifecycle coverage.</li>
+                                </ul>
+                            </div>
+                            <div class="space-y-1">
+                                <span class="px-2 py-0.5 bg-red-100 text-red-700 text-[10px] font-bold rounded uppercase tracking-wider">Weaknesses</span>
+                                <ul class="text-[11px] text-on-surface-variant list-disc list-inside space-y-0.5">
+                                    <li>99.9% SLA is somewhat conservative.</li>
+                                </ul>
+                            </div>
+                        </td>
+                    </tr>
+                    <!-- Case 3 -->
+                    <tr>
+                        <td class="p-6 text-sm font-medium leading-relaxed bg-surface/30">현대오토에버에서 PnC(Plug and Charge) 보안 테스트를 위한 모듈을 요청했습니다. ISO 15118-20 표준을 지원해야 하고, 상호 인증 과정이 상세히 기술되어야 합니다.</td>
+                        <td class="p-6 text-center">
+                            <span class="inline-flex items-center justify-center w-12 h-12 bg-primary/10 text-primary font-bold rounded-full border border-primary/20">9.4</span>
+                        </td>
+                        <td class="p-6 text-xs text-on-surface-variant leading-relaxed italic prose prose-sm max-w-none">
+                            Exceptionally high quality, showing deep ISO 15118-20 understanding. Correctly identifies TLS 1.3 transition and ECC curves (P-256, P-384). Tone is objective and architectural. Specifically addresses 'testing' nature through error injection and protocol monitoring.
+                        </td>
+                        <td class="p-6 space-y-4">
+                            <div class="space-y-1">
+                                <span class="px-2 py-0.5 bg-green-100 text-green-700 text-[10px] font-bold rounded uppercase tracking-wider">Strengths</span>
+                                <ul class="text-[11px] text-on-surface-variant list-disc list-inside space-y-0.5">
+                                    <li>Precise technical alignment with ISO 15118-20:2022.</li>
+                                    <li>Excellent focus on 'Test Module' aspects.</li>
+                                    <li>Identification of V2G/OEM/MO PKI hierarchy.</li>
+                                </ul>
+                            </div>
+                            <div class="space-y-1">
+                                <span class="px-2 py-0.5 bg-red-100 text-red-700 text-[10px] font-bold rounded uppercase tracking-wider">Weaknesses</span>
+                                <ul class="text-[11px] text-on-surface-variant list-disc list-inside space-y-0.5">
+                                    <li>Lacks a step-by-step message sequence description.</li>
+                                </ul>
+                            </div>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </main>
+</body>
+</html>
