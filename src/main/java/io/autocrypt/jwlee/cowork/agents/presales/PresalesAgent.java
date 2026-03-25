@@ -2,6 +2,7 @@ package io.autocrypt.jwlee.cowork.agents.presales;
 
 import java.io.IOException;
 import java.nio.file.Path;
+import java.util.Map;
 
 import org.springframework.stereotype.Component;
 
@@ -12,6 +13,7 @@ import com.embabel.agent.api.common.ActionContext;
 import com.embabel.agent.api.common.workflow.loop.RepeatUntilAcceptableBuilder;
 import com.embabel.agent.api.common.workflow.loop.TextFeedback;
 
+import io.autocrypt.jwlee.cowork.core.prompts.PromptProvider;
 import io.autocrypt.jwlee.cowork.core.tools.LocalRagTools;
 import io.autocrypt.jwlee.cowork.core.workaround.JsonSafeToolishRag;
 
@@ -20,9 +22,11 @@ import io.autocrypt.jwlee.cowork.core.workaround.JsonSafeToolishRag;
 public class PresalesAgent {
 
     private final LocalRagTools localRagTools;
+    private final PromptProvider promptProvider;
 
-    public PresalesAgent(LocalRagTools localRagTools) {
+    public PresalesAgent(LocalRagTools localRagTools, PromptProvider promptProvider) {
         this.localRagTools = localRagTools;
+        this.promptProvider = promptProvider;
     }
 
     public record RequirementRequest(String sourceContent, Path techRagPath) {}
@@ -53,42 +57,19 @@ public class PresalesAgent {
                     String lastFindings = lastAttempt != null ? lastAttempt.getResult() : "No previous findings.";
                     String feedback = lastAttempt != null ? lastAttempt.getFeedback().toString() : "Initial search.";
                     
-                    String prompt = String.format("""
-                        # TASK
-                        Search 'tech_knowledge' to find technical specifications and industry standards related to the customer inquiry.
-                        
-                        # OBJECTIVE
-                        Analyze the provided inquiry (email, chat log, or meeting transcript) and gather specific technical protocols, security standards, and terms (e.g., IEEE 1609.2, V2X).
-                        Accumulate knowledge from each iteration. Do NOT discard previous findings.
-                        
-                        # CUSTOMER INQUIRY
-                        %s
-                        
-                        # PREVIOUS FINDINGS
-                        %s
-                        
-                        # CRITIC FEEDBACK
-                        %s
-                        
-                        # OUTPUT
-                        Return a comprehensive, aggregated technical summary including both previous findings and new discoveries.
-                        """, req.sourceContent(), lastFindings, feedback);
+                    String prompt = promptProvider.getPrompt("agents/presales/refine-requirements-search.jinja", Map.of(
+                        "sourceContent", req.sourceContent(),
+                        "lastFindings", lastFindings,
+                        "feedback", feedback
+                    ));
                     
                     return simpleAi.generateText(prompt);
                 })
                 .withEvaluator(loopCtx -> {
-                    String prompt = String.format("""
-                        Review the gathered technical context against the customer inquiry.
-                        Is the information sufficient to draft a detailed Customer Requirements Specification (CRS)?
-                        
-                        # Customer Inquiry:
-                        %s
-                        
-                        # Gathered Context:
-                        %s
-                        
-                        Return a score and specific feedback on what technical details are still missing.
-                        """, req.sourceContent(), loopCtx.getResultToEvaluate());
+                    String prompt = promptProvider.getPrompt("agents/presales/refine-requirements-eval.jinja", Map.of(
+                        "sourceContent", req.sourceContent(),
+                        "contextToEvaluate", loopCtx.getResultToEvaluate()
+                    ));
                     
                     return normalAi.createObject(prompt, TextFeedback.class);
                 })
@@ -96,21 +77,10 @@ public class PresalesAgent {
                 .asSubProcess(ctx, String.class);
 
         // 2. Normal AI Worker drafts the final CRS
-        String finalPrompt = String.format("""
-            You are a Senior Solutions Architect. Using the provided technical context, refine the customer inquiry into a detailed Customer Requirements Specification (CRS) in Markdown format.
-            
-            # Customer Inquiry:
-            %s
-            
-            # Technical Context:
-            %s
-            
-            # Instructions:
-            1. Structure the CRS clearly with sections: Introduction, Functional Requirements, Non-Functional Requirements, and Technical Constraints.
-            2. Use industry-standard terminology found in the context.
-            3. Do NOT include any analysis of product capabilities or gaps.
-            4. Output ONLY the Markdown content.
-            """, req.sourceContent(), techContext);
+        String finalPrompt = promptProvider.getPrompt("agents/presales/refine-requirements-final.jinja", Map.of(
+            "sourceContent", req.sourceContent(),
+            "techContext", techContext
+        ));
 
         return normalAi.generateText(finalPrompt);
     }
@@ -137,40 +107,19 @@ public class PresalesAgent {
                     String lastFindings = lastAttempt != null ? lastAttempt.getResult() : "No previous findings.";
                     String feedback = lastAttempt != null ? lastAttempt.getFeedback().toString() : "Initial search.";
 
-                    String prompt = String.format("""
-                        # TASK
-                        Search 'product_knowledge' to find internal product capabilities matching the CRS.
-                        
-                        # OBJECTIVE
-                        You must accumulate knowledge. Do NOT discard previous findings.
-                        Address the critic's feedback to investigate specific gaps or features more deeply.
-                        
-                        # CRS
-                        %s
-                        
-                        # PREVIOUS FINDINGS (Preserve and Expand this)
-                        %s
-                        
-                        # CRITIC FEEDBACK
-                        %s
-                        
-                        # OUTPUT
-                        Return a comprehensive, aggregated capability summary including both previous findings and new discoveries.
-                        """, req.crsContent(), lastFindings, feedback);
+                    String prompt = promptProvider.getPrompt("agents/presales/gap-analysis-search.jinja", Map.of(
+                        "crsContent", req.crsContent(),
+                        "lastFindings", lastFindings,
+                        "feedback", feedback
+                    ));
 
                     return simpleAi.generateText(prompt);
                 })
                 .withEvaluator(loopCtx -> {
-                    String prompt = String.format("""
-                        Review the gathered product context against the CRS.
-                        Is the information sufficient to perform a detailed gap analysis (Supported/Partial/Unsupported) and effort estimation?
-                        
-                        # CRS:
-                        %s
-                        
-                        # Gathered Product Context:
-                        %s
-                        """, req.crsContent(), loopCtx.getResultToEvaluate());
+                    String prompt = promptProvider.getPrompt("agents/presales/gap-analysis-eval.jinja", Map.of(
+                        "crsContent", req.crsContent(),
+                        "contextToEvaluate", loopCtx.getResultToEvaluate()
+                    ));
 
                     return normalAi.createObject(prompt, TextFeedback.class);
                 })
@@ -178,44 +127,20 @@ public class PresalesAgent {
                 .asSubProcess(ctx, String.class);
 
         // 2. Worker: Generate the final Internal Review Report
-        String analysisPrompt = String.format("""
-            Based on the product context and CRS, perform a deep technical gap analysis.
-            For each requirement, provide:
-            1. Support Status (Supported/Partially Supported/Unsupported)
-            2. Detailed technical justification.
-            3. Estimated development effort in Man-Months (M/M).
-            
-            # CRS:
-            %s
-            
-            # Product Context:
-            %s
-            """, req.crsContent(), productContext);
+        String analysisPrompt = promptProvider.getPrompt("agents/presales/gap-analysis-worker.jinja", Map.of(
+            "crsContent", req.crsContent(),
+            "productContext", productContext
+        ));
 
         String rawAnalysis = normalAi.generateText(analysisPrompt);
 
-        String finalReportPrompt = String.format("""
-            You are the Head of Research reporting to the Business Unit (BU) Manager.
-            Convert the following analysis into a formal **Internal Technical Review Report** in Korean.
-            
-            # SECTION STRUCTURE (REQUIRED):
-            1. **개요**: 프로젝트의 핵심 목표와 고객의 핵심 요구사항 요약.
-            2. **제품 현황 및 기능 비교**: Markdown 표 형식을 사용 (구분 | 요구 기능 | 지원 현황 | 분석 내용). 지원 현황은 '지원', '미지원', '부분 지원' 등으로 표기.
-            3. **주요 개발 항목 및 예상 공수**: 각 개발 항목별 예상 공수(M/M)와 구체적인 기술적 배경 설명.
-            4. **추가 확인 필요 사항**: 프로젝트 범위 확정 및 견적 산출을 위해 고객사 또는 사업부에 확인이 필요한 기술적/비즈니스적 리스트.
-            
-            # CONTEXT (Analysis Result):
-            %s
-            
-            # INSTRUCTIONS:
-            - Maintain a professional, objective, and analytical tone suitable for internal management.
-            - Do NOT draft an email to the customer. Focus on technical assessment and internal decision-making data.
-            - Ensure all M/M estimates from the context are clearly presented.
-            """, rawAnalysis);
+        String finalReportPrompt = promptProvider.getPrompt("agents/presales/final-report.jinja", Map.of(
+            "rawAnalysis", rawAnalysis
+        ));
 
         String finalReport = normalAi.generateText(finalReportPrompt);
 
-        String questionPrompt = "Extract ONLY the list of 'Additional Clarification Items' (추가 확인 필요 사항) from the report: \n\n" + finalReport;
+        String questionPrompt = promptProvider.getPrompt("agents/presales/extract-questions.md") + "\n\n" + finalReport;
         String questions = normalAi.generateText(questionPrompt);
 
         return new AnalysisResult(rawAnalysis, questions, finalReport);
