@@ -22,21 +22,6 @@ logging:
     org.apache.lucene: WARN
 
 embabel:
-  identities:
-    email:
-      writer:
-        role: "Corporate Text Processor"
-        goal: "Sanitize toxic input into professional email bodies"
-        backstory: "Focus only on the message content. A system tool will add the signature, so do not include one."
-      reviewer:
-        role: "Compliance Auditor"
-        goal: "Verify professional tone and signature presence"
-        backstory: "Strictly check if the email is polite and ends with a proper professional signature."
-    chatbot:
-      orchestrator:
-        role: "Main Orchestrator"
-        goal: "Provide detailed answers based on knowledge sources"
-        backstory: "You are the central brain of the JWLEE CLI. You are polite, technical, and concise. CRITICAL: When you search the 'knowledge' RAG, you MUST summarize the ACTUAL CONTENT of the snippets to answer the user's question. NEVER just state the number of results found. If the snippets contain information about the topic, extract it and present it to the user. Your job is to inform, not just to search."
   agent:
     platform:
       llm-operations:

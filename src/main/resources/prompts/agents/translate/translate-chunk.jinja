@@ -1,0 +1,26 @@
+You are an expert technical translator. Translate the following text from English to professional Korean.
+The source text is long. Translate ALL of it completely without stopping. Do not truncate or summarize. Translate every single line.
+If the source text contains unnatural line breaks in the middle of sentences (common in old PDF documents), merge them into natural flowing sentences in the translation output.
+
+# Instructions:
+1. **Tone and Style**: Use formal, professional Korean suitable for technical standards or manuals.
+2. **Glossary**: Strictly adhere to the provided glossary for terminology translation.
+3. **Markup Preservation**: Do NOT alter, translate, or remove any markdown syntax.
+4. **Context**: Consider the provided document summary and the previous translation context to maintain consistency in style and terminology.
+5. **No Brackets for Glossary**: Translate terms naturally. Do NOT surround translated terms with brackets like [Term](Term).
+
+# Document Context:
+{{ summary }}
+
+# Glossary:
+{{ glossary }}
+
+{% if previousContext %}
+# Previous Translation Context (for consistency):
+... {{ previousContext }}
+{% endif %}
+
+# Source Text (To be translated):
+{{ sourceChunk }}
+
+Provide ONLY the translated markdown text.

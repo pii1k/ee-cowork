@@ -5,6 +5,8 @@ import com.embabel.agent.api.annotation.Action;
 import com.embabel.agent.api.annotation.Agent;
 import com.embabel.agent.api.common.ActionContext;
 import com.embabel.agent.api.common.Ai;
+
+import io.autocrypt.jwlee.cowork.core.prompts.PromptProvider;
 import io.autocrypt.jwlee.cowork.core.tools.CoreFileTools;
 import io.autocrypt.jwlee.cowork.core.tools.GitTools;
 import io.autocrypt.jwlee.cowork.core.tools.GoogleServiceTools;
@@ -19,6 +21,7 @@ import java.time.temporal.ChronoUnit;
 import java.time.temporal.WeekFields;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 
 @Agent(description = "Manages Obsidian Daily and Weekly notes with Git synchronization.")
 @Component
@@ -33,16 +36,19 @@ public class ObsidianAgent {
     private final GoogleServiceTools googleServiceTools;
     private final CoreFileTools fileTools;
     private final Terminal terminal;
+    private final PromptProvider promptProvider;
 
     private static final DateTimeFormatter DAILY_FORMAT = DateTimeFormatter.ofPattern("'🗓'yyyy-MM-dd");
     private static final DateTimeFormatter WEEKLY_FORMAT = DateTimeFormatter.ofPattern("'🗓'yyyy-'W'ww");
 
-    public ObsidianAgent(GitTools gitTools, ObsidianTools obsidianTools, GoogleServiceTools googleServiceTools, CoreFileTools fileTools, Terminal terminal) {
+    public ObsidianAgent(GitTools gitTools, ObsidianTools obsidianTools, GoogleServiceTools googleServiceTools, 
+                        CoreFileTools fileTools, Terminal terminal, PromptProvider promptProvider) {
         this.gitTools = gitTools;
         this.obsidianTools = obsidianTools;
         this.googleServiceTools = googleServiceTools;
         this.fileTools = fileTools;
         this.terminal = terminal;
+        this.promptProvider = promptProvider;
     }
 
     private void log(String message) {
@@ -80,18 +86,17 @@ public class ObsidianAgent {
         String thisWeek = today.format(WEEKLY_FORMAT);
         String previousWeek = today.minus(1, ChronoUnit.WEEKS).format(WEEKLY_FORMAT);
 
-        String template = fileTools.readFile("src/main/resources/prompts/obsidian/daily-template.md").content();
-        
-        String prompt = template
-                .replace("{{unfinishedTasks}}", String.join("\n", unfinishedTasks))
-                .replace("{{googleTasks}}", googleTasks)
-                .replace("{{today}}", today.format(DAILY_FORMAT))
-                .replace("{{yesterday}}", yesterday.format(DAILY_FORMAT))
-                .replace("{{thisWeek}}", thisWeek)
-                .replace("{{previousWeek}}", previousWeek)
-                .replace("{{tasksToInclude}}", String.join("\n", unfinishedTasks));
-
         log("Generating daily note content with LLM...");
+        String prompt = promptProvider.getPrompt("agents/obsidian/daily.jinja", Map.of(
+            "unfinishedTasks", String.join("\n", unfinishedTasks),
+            "googleTasks", googleTasks,
+            "today", today.format(DAILY_FORMAT),
+            "yesterday", yesterday.format(DAILY_FORMAT),
+            "thisWeek", thisWeek,
+            "previousWeek", previousWeek,
+            "tasksToInclude", String.join("\n", unfinishedTasks)
+        ));
+
         String content = ai.withDefaultLlm().generateText(prompt);
 
         obsidianTools.writeVaultNote(relativePath, content);
@@ -142,14 +147,13 @@ public class ObsidianAgent {
 
         String previousWeek = today.minus(1, ChronoUnit.WEEKS).format(WEEKLY_FORMAT);
 
-        String template = fileTools.readFile("src/main/resources/prompts/obsidian/weekly-template.md").content();
-        
-        String prompt = template
-                .replace("{{dailyNotes}}", dailyNotesContent.toString())
-                .replace("{{thisWeek}}", thisWeek)
-                .replace("{{previousWeek}}", previousWeek);
-
         log("Generating weekly note content with LLM...");
+        String prompt = promptProvider.getPrompt("agents/obsidian/weekly.jinja", Map.of(
+            "dailyNotes", dailyNotesContent.toString(),
+            "thisWeek", thisWeek,
+            "previousWeek", previousWeek
+        ));
+
         String content = ai.withDefaultLlm().generateText(prompt);
 
         obsidianTools.writeVaultNote(relativePath, content);

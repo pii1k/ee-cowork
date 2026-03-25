@@ -25,6 +25,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import io.autocrypt.jwlee.cowork.agents.docsummary.DocSummaryAgent;
 import io.autocrypt.jwlee.cowork.core.hitl.ApplicationContextHolder;
 import io.autocrypt.jwlee.cowork.core.hitl.NotificationEvent;
+import io.autocrypt.jwlee.cowork.core.prompts.PromptProvider;
 import io.autocrypt.jwlee.cowork.core.tools.CoreWorkspaceProvider;
 import io.autocrypt.jwlee.cowork.core.tools.LocalRagTools;
 import io.autocrypt.jwlee.cowork.core.tools.PdfParser;
@@ -38,34 +39,17 @@ public class TranslateAgent {
     private final ObjectMapper objectMapper;
     private final DocSummaryAgent docSummaryAgent;
     private final LocalRagTools localRagTools;
+    private final PromptProvider promptProvider;
     private final RoleGoalBackstory translatorPersona;
 
-    public TranslateAgent(PdfParser parser, TranslateWorkspace workspace, ObjectMapper objectMapper, DocSummaryAgent docSummaryAgent, LocalRagTools localRagTools) {
+    public TranslateAgent(PdfParser parser, TranslateWorkspace workspace, ObjectMapper objectMapper, DocSummaryAgent docSummaryAgent, LocalRagTools localRagTools, PromptProvider promptProvider) {
         this.parser = parser;
         this.workspace = workspace;
         this.objectMapper = objectMapper;
         this.docSummaryAgent = docSummaryAgent;
         this.localRagTools = localRagTools;
-        this.translatorPersona = new RoleGoalBackstory(
-            "Senior Technical Translator",
-            "Accurately translate technical documents from English to Korean while maintaining strict terminology and formatting.",
-            """
-            **Tone and Style Guidelines:**
-            - Maintain a formal, professional, and objective tone.
-            - Use plain statements for body text.
-            - Use noun-based endings for definitions, list items, and headings to improve readability.
-            - Ensure that the logical structure and hierarchical relationship of concepts are preserved.
-            
-            **Markdown Formatting:**
-            - Strictly maintain all original markdown syntax (#, ##, bold, italics, lists, blockquotes).
-            - Preserve the structure and labels of Figures and Tables.
-            - Ensure LaTeX-style formulas (if any) are kept intact.
-            
-            **Korean Document Standards:**
-            - Do not put a period (.) at the end of items in a bulleted or numbered list.
-            - Output ONLY the translated text without any meta-comments, introductory remarks, or concluding explanations.
-            """
-        );
+        this.promptProvider = promptProvider;
+        this.translatorPersona = promptProvider.getPersona("agents/translate/persona.md");
     }
 
     public record TranslateStartRequest(String pdfPath, String workspaceName) {}
@@ -119,22 +103,10 @@ public class TranslateAgent {
                 .collect(Collectors.toList());
         String formattedGlossary = String.join("; ", termStrings);
 
-        String prompt = String.format("""
-            Based on the following document summary and key terminology, identify the Table of Contents (TOC) if present and common Boilerplate Patterns (headers, footers, etc.).
-            
-            # Summary:
-            %s
-            
-            # Key Terminology:
-            %s
-            
-            # Task:
-            1. Extract the Table of Contents (TOC) if present.
-            2. Identify 'Boilerplate Patterns' (repeating meta-text).
-            
-            # Output:
-            Provide DocumentContext matching the requested schema. Use the summary provided below.
-            """, result.summary(), formattedGlossary);
+        String prompt = promptProvider.getPrompt("agents/translate/extract-context.jinja", Map.of(
+            "summary", result.summary(),
+            "glossary", formattedGlossary
+        ));
 
         DocumentContext partialContext = ai.withLlm(LlmOptions.withLlmForRole("normal").withoutThinking())
             .creating(DocumentContext.class).fromPrompt(prompt);
@@ -175,7 +147,7 @@ public class TranslateAgent {
         }
 
         System.out.println("Translation chunks prepared. Starting translation loop...");
-        return new TranslationLoopState(wsPath, docContext, state, workspace, translatorPersona);
+        return new TranslationLoopState(wsPath, docContext, state, workspace, translatorPersona, promptProvider);
     }
 
     private List<String> chunkElements(String fullMarkdown) {
@@ -211,7 +183,7 @@ public class TranslateAgent {
             if (state.getCurrentPhase() == TranslateWorkspace.TranslateState.Phase.CHUNK_TRANSLATION) {
                 String glossaryJson = workspace.readGlossary(wsPath);
                 DocumentContext ctx = objectMapper.readValue(glossaryJson, DocumentContext.class);
-                return new TranslationLoopState(wsPath, ctx, state, workspace, translatorPersona);
+                return new TranslationLoopState(wsPath, ctx, state, workspace, translatorPersona, promptProvider);
             } else if (state.getCurrentPhase() == TranslateWorkspace.TranslateState.Phase.MERGE_AND_POSTPROCESS) {
                 return new MergeState(wsPath, state, workspace);
             }
@@ -222,7 +194,7 @@ public class TranslateAgent {
     }
 
     @State
-    public record TranslationLoopState(Path wsPath, DocumentContext context, TranslateWorkspace.TranslateState state, TranslateWorkspace workspace, RoleGoalBackstory translatorPersona) implements Stage {
+    public record TranslationLoopState(Path wsPath, DocumentContext context, TranslateWorkspace.TranslateState state, TranslateWorkspace workspace, RoleGoalBackstory translatorPersona, PromptProvider promptProvider) implements Stage {
         @Action(canRerun = true, clearBlackboard = true)
         public Stage processChunk(Ai ai) {
             try {
@@ -247,32 +219,12 @@ public class TranslateAgent {
 
                 System.out.println("Translating chunk " + (currentIndex + 1) + " of " + state.getTotalChunks() + "...");
 
-                String prompt = String.format("""
-                    You are an expert technical translator. Translate the following text from English to professional Korean.
-                    The source text is long. Translate ALL of it completely without stopping. Do not truncate or summarize. Translate every single line.
-                    If the source text contains unnatural line breaks in the middle of sentences (common in old PDF documents), merge them into natural flowing sentences in the translation output.
-
-                    # Instructions:
-                    1. **Tone and Style**: Use formal, professional Korean suitable for technical standards or manuals.
-                    2. **Glossary**: Strictly adhere to the provided glossary for terminology translation.
-                    3. **Markup Preservation**: Do NOT alter, translate, or remove any markdown syntax.
-                    4. **Context**: Consider the provided document summary and the previous translation context to maintain consistency in style and terminology.
-                    5. **No Brackets for Glossary**: Translate terms naturally. Do NOT surround translated terms with brackets like [Term](Term).
-
-                    # Document Context:
-                    %s
-
-                    # Glossary:
-                    %s
-
-                    # Previous Translation Context (for consistency):
-                    ... %s
-
-                    # Source Text (To be translated):
-                    %s
-
-                    Provide ONLY the translated markdown text.
-                    """, context.summary(), context.glossary(), previousContext, sourceChunk);
+                String prompt = promptProvider.getPrompt("agents/translate/translate-chunk.jinja", Map.of(
+                    "summary", context.summary(),
+                    "glossary", context.glossary(),
+                    "previousContext", previousContext,
+                    "sourceChunk", sourceChunk
+                ));
 
                 String translated = ai.withLlm(LlmOptions.withLlmForRole("normal").withoutThinking())
                     .withPromptContributor(translatorPersona)
@@ -283,7 +235,7 @@ public class TranslateAgent {
                 state.setCompletedChunks(currentIndex + 1);
                 workspace.saveState(wsPath, state);
 
-                return new TranslationLoopState(wsPath, context, state, workspace, translatorPersona);
+                return new TranslationLoopState(wsPath, context, state, workspace, translatorPersona, promptProvider);
             } catch (Exception e) {
                 throw new RuntimeException(e);
             }

@@ -5,6 +5,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 import org.jline.terminal.Terminal;
@@ -17,6 +18,7 @@ import com.embabel.agent.api.annotation.State;
 import com.embabel.agent.api.common.ActionContext;
 import com.embabel.common.ai.model.LlmOptions;
 
+import io.autocrypt.jwlee.cowork.core.prompts.PromptProvider;
 import io.autocrypt.jwlee.cowork.core.tools.CoreFileTools;
 import io.autocrypt.jwlee.cowork.core.tools.CoreWorkspaceProvider;
 import io.autocrypt.jwlee.cowork.core.tools.LocalRagTools;
@@ -32,14 +34,16 @@ public class DocSummaryAgent {
     private final LocalRagTools localRagTools;
     private final DocSummaryWorkspace workspace;
     private final Terminal terminal;
+    private final PromptProvider promptProvider;
 
     public DocSummaryAgent(PdfParser pdfParser, CoreFileTools fileTools, LocalRagTools localRagTools, 
-                     DocSummaryWorkspace workspace, Terminal terminal) {
+                     DocSummaryWorkspace workspace, Terminal terminal, PromptProvider promptProvider) {
         this.pdfParser = pdfParser;
         this.fileTools = fileTools;
         this.localRagTools = localRagTools;
         this.workspace = workspace;
         this.terminal = terminal;
+        this.promptProvider = promptProvider;
     }
 
     private void logToTerminal(String message) {
@@ -95,20 +99,13 @@ public class DocSummaryAgent {
         
         String sample = markdown.length() > 5000 ? markdown.substring(0, 5000) : markdown;
         
+        String prompt = promptProvider.getPrompt("agents/docsummary/extract-overview.jinja", Map.of(
+            "sample", sample
+        ));
+
         DocSummaryOverview overview = ctx.ai().withLlm(LlmOptions.withLlmForRole("simple").withoutThinking())
                 .creating(DocSummaryOverview.class)
-                .fromPrompt(String.format("""
-                        Analyze the following document and provide a high-level summary and 5-10 core technical terms.
-                        
-                        # DOCUMENT CONTENT (PARTIAL)
-                        %s
-                        
-                        # OUTPUT INSTRUCTIONS
-                        1. Provide a summary for LLM reference.
-                        2. Extract 5-10 core technical terms. 
-                           - **LANGUAGE**: English only.
-                           - **FORMAT**: Title Case (e.g., "Digital Signature", "Asymmetric Encryption").
-                        """, sample));
+                .fromPrompt(prompt);
 
         List<ScoredTerm> initialScored = overview.initialTerms().stream()
                 .map(t -> new ScoredTerm(t.trim(), 1.0))
@@ -145,34 +142,17 @@ public class DocSummaryAgent {
                     .map(ScoredTerm::term)
                     .collect(Collectors.joining(", "));
 
+            String prompt = promptProvider.getPrompt("agents/docsummary/extract-terms-segment.jinja", Map.of(
+                "summary", state.overview().summary(),
+                "chunkIdx", chunkIdx + 1,
+                "totalChunks", chunks.size(),
+                "chunk", chunk,
+                "existingTerms", existingTermsSample
+            ));
+
             RawTerms newScoredTerms = ctx.ai().withLlm(LlmOptions.withLlmForRole("simple").withoutThinking())
                     .creating(RawTerms.class)
-                    .fromPrompt(String.format("""
-                            # TASK
-                            Extract technical terms, acronyms, and core concepts from this segment and assign an **Importance Score (0.0 to 1.0)** to each.
-
-                            # SCORING CRITERIA
-                            - **0.9 - 1.0 (Critical):** Terms that are fundamental to the document's core subject. This includes primary protocols, system architectures, or concepts without which the document cannot be understood.
-                            - **0.7 - 0.8 (Important):** Key supporting concepts, specific security mechanisms, major data structures, or essential operational procedures. These are important for a deep understanding but are not the absolute foundation.
-                            - **0.4 - 0.6 (Secondary):** Specific parameters, minor fields, optional sub-components, or niche implementation details.
-                            - **0.1 - 0.3 (Trivial):** Generic IT terminology, common English words used in a technical context, repetitive boilerplate, or irrelevant details.
-
-                            # DOCUMENT SUMMARY (Use this for scoring context)
-                            %s
-
-                            # DOCUMENT SEGMENT (%d/%d)
-                            %s
-
-                            # PREVIOUSLY EXTRACTED HIGH-IMPORTANCE TERMS (Do not repeat these)
-                            %s
-
-                            # INSTRUCTIONS
-                            1. Extract **at most 25** high-quality terms strictly in **English**.
-                            2. **Only extract terms that merit a score HIGHER than 0.6**. If a term is less important, ignore it.
-                            3. Use **Title Case** for all terms (e.g., "Advanced Encryption Standard").
-                            4. Do not include Korean translations in this phase.
-                            5. <example>{"term": "Digital Signature", "score": 0.95}</example>
-                            """, state.overview().summary(), chunkIdx + 1, chunks.size(), chunk, existingTermsSample));            
+                    .fromPrompt(prompt);            
             if (newScoredTerms.terms() != null) {
                 int addedCount = 0;
                 for (ScoredTerm st : newScoredTerms.terms()) {
@@ -221,28 +201,15 @@ public class DocSummaryAgent {
             List<String> batch = refinedTerms.terms().subList(i, end).stream().map(ScoredTerm::term).toList();
             
             try {
+                String prompt = promptProvider.getPrompt("agents/docsummary/define-terms.jinja", Map.of(
+                    "summary", state.overview().summary(),
+                    "terms", String.join(", ", batch)
+                ));
+
                 TermList definedBatch = ctx.ai().withLlm(LlmOptions.withLlmForRole("simple").withoutThinking())
                         .withReference(rag)
                         .creating(TermList.class)
-                        .fromPrompt(String.format("""
-                        # TASK
-                        Provide Korean translations and concise Korean definitions for the provided English terms.
-
-                        # DOCUMENT OVERVIEW
-                        %s
-                        
-                        # ENGLISH TERMS
-                        %s
-                        
-                        # INSTRUCTIONS
-                        1. For each term, provide:
-                           - **term**: "English Term (Korean Translation)"
-                           - **definition**: A concise Korean explanation.
-                        2. <example>
-                           Term: Digital Signature (디지털 서명)
-                           Definition: 메시지의 무결성과 발신자의 신원을 증명하기 위해 사용되는 전자적 서명 기술.
-                           </example>
-                        """, state.overview().summary(), String.join(", ", batch)));
+                        .fromPrompt(prompt);
                 
                 if (definedBatch.terms() != null) {
                     finalTerms.addAll(definedBatch.terms());
