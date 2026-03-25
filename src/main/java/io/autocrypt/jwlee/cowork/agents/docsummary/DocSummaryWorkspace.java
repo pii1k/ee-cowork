@@ -1,4 +1,4 @@
-package io.autocrypt.jwlee.cowork.agents.anki;
+package io.autocrypt.jwlee.cowork.agents.docsummary;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.stereotype.Component;
@@ -10,12 +10,12 @@ import java.nio.file.Paths;
 import java.util.List;
 
 @Component
-public class AnkiWorkspace {
+public class DocSummaryWorkspace {
 
     private final ObjectMapper objectMapper;
-    private static final Path BASE_PATH = Paths.get("output/anki/workspaces");
+    private static final Path BASE_PATH = Paths.get("output/docsummary/workspaces");
 
-    public AnkiWorkspace(ObjectMapper objectMapper) {
+    public DocSummaryWorkspace(ObjectMapper objectMapper) {
         this.objectMapper = objectMapper;
     }
 
@@ -27,15 +27,15 @@ public class AnkiWorkspace {
         return wsPath;
     }
 
-    public void saveState(Path wsPath, AnkiAgent.ExtractedState state) throws IOException {
+    public void saveState(Path wsPath, DocSummaryAgent.ExtractedState state) throws IOException {
         objectMapper.writerWithDefaultPrettyPrinter().writeValue(wsPath.resolve("state.json").toFile(), state);
     }
 
-    public AnkiAgent.ExtractedState loadState(Path wsPath) throws IOException {
-        return objectMapper.readValue(wsPath.resolve("state.json").toFile(), AnkiAgent.ExtractedState.class);
+    public DocSummaryAgent.ExtractedState loadState(Path wsPath) throws IOException {
+        return objectMapper.readValue(wsPath.resolve("state.json").toFile(), DocSummaryAgent.ExtractedState.class);
     }
 
-    public void saveAllTerms(Path wsPath, List<AnkiAgent.ScoredTerm> terms) throws IOException {
+    public void saveAllTerms(Path wsPath, List<DocSummaryAgent.ScoredTerm> terms) throws IOException {
         objectMapper.writerWithDefaultPrettyPrinter().writeValue(wsPath.resolve("all_extracted_terms.json").toFile(), terms);
     }
 }

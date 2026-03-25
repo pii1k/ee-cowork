@@ -1,4 +1,4 @@
-package io.autocrypt.jwlee.cowork.agents.anki;
+package io.autocrypt.jwlee.cowork.agents.docsummary;
 
 import java.io.IOException;
 import java.nio.file.Path;
@@ -17,25 +17,23 @@ import com.embabel.agent.api.annotation.State;
 import com.embabel.agent.api.common.ActionContext;
 import com.embabel.common.ai.model.LlmOptions;
 
-import io.autocrypt.jwlee.cowork.core.hitl.ApplicationContextHolder;
-import io.autocrypt.jwlee.cowork.core.hitl.NotificationEvent;
 import io.autocrypt.jwlee.cowork.core.tools.CoreFileTools;
 import io.autocrypt.jwlee.cowork.core.tools.LocalRagTools;
 import io.autocrypt.jwlee.cowork.core.tools.PdfParser;
 import io.autocrypt.jwlee.cowork.core.workaround.JsonSafeToolishRag;
 
-@Agent(description = "Extracts key terms and concepts from documents to generate Anki CSV files with Korean definitions.")
+@Agent(description = "Extracts key terms and concepts from documents and provides summaries.")
 @Component
-public class AnkiAgent {
+public class DocSummaryAgent {
 
     private final PdfParser pdfParser;
     private final CoreFileTools fileTools;
     private final LocalRagTools localRagTools;
-    private final AnkiWorkspace workspace;
+    private final DocSummaryWorkspace workspace;
     private final Terminal terminal;
 
-    public AnkiAgent(PdfParser pdfParser, CoreFileTools fileTools, LocalRagTools localRagTools, 
-                     AnkiWorkspace workspace, Terminal terminal) {
+    public DocSummaryAgent(PdfParser pdfParser, CoreFileTools fileTools, LocalRagTools localRagTools, 
+                     DocSummaryWorkspace workspace, Terminal terminal) {
         this.pdfParser = pdfParser;
         this.fileTools = fileTools;
         this.localRagTools = localRagTools;
@@ -44,40 +42,37 @@ public class AnkiAgent {
     }
 
     private void logToTerminal(String message) {
-        terminal.writer().println("[AnkiAgent] " + message);
+        terminal.writer().println("[DocSummaryAgent] " + message);
         terminal.writer().flush();
     }
 
     // --- DTOs ---
 
-    public record AnkiStartRequest(Path filePath, String workspaceName, Path ragPath, int maxCards) {}
-    public record AnkiResumeRequest(String workspaceName, int maxCards) {}
+    public record DocSummaryRequest(Path filePath, String workspaceName, Path ragPath, int maxTerms) {}
+    public record DocSummaryResumeRequest(String workspaceName, int maxTerms) {}
 
-    public record AnkiOverview(String summary, List<String> initialTerms) {}
+    public record DocSummaryOverview(String summary, List<String> initialTerms) {}
 
     public record ScoredTerm(String term, double score) {}
 
     public record RawTerms(List<ScoredTerm> terms) {}
 
-    public record AnkiTerm(String term, String definition) {}
+    public record DefinedTerm(String term, String definition) {}
 
-    public record AnkiCardList(List<AnkiTerm> cards) {}
+    public record TermList(List<DefinedTerm> terms) {}
 
-    public record AnkiResult(String csvPath, String summary, List<String> terms) {}
-
-    @State
-    public record InitialState(AnkiStartRequest request, Path wsPath, String fullMarkdown, AnkiOverview overview, List<ScoredTerm> accumulatedTerms) {}
+    public record DocSummaryResult(String summary, List<DefinedTerm> terms) {}
 
     @State
-    public record ExtractedState(String workspaceName, Path wsPath, Path ragPath, int maxCards, String fullMarkdown, AnkiOverview overview, List<ScoredTerm> finalTerms) {}
+    public record InitialState(DocSummaryRequest request, Path wsPath, String fullMarkdown, DocSummaryOverview overview, List<ScoredTerm> accumulatedTerms) {}
+
+    @State
+    public record ExtractedState(String workspaceName, Path wsPath, Path ragPath, int maxTerms, String fullMarkdown, DocSummaryOverview overview, List<ScoredTerm> finalTerms) {}
 
     // --- Actions ---
 
-    /**
-     * Start Phase 1: Initialize and extract overview.
-     */
     @Action
-    public InitialState start(AnkiStartRequest req, ActionContext ctx) throws IOException {
+    public InitialState start(DocSummaryRequest req, ActionContext ctx) throws IOException {
         Path wsPath = workspace.initWorkspace(req.workspaceName());
         
         String markdown;
@@ -92,8 +87,8 @@ public class AnkiAgent {
         
         String sample = markdown.length() > 5000 ? markdown.substring(0, 5000) : markdown;
         
-        AnkiOverview overview = ctx.ai().withLlm(LlmOptions.withLlmForRole("simple").withoutThinking())
-                .creating(AnkiOverview.class)
+        DocSummaryOverview overview = ctx.ai().withLlm(LlmOptions.withLlmForRole("simple").withoutThinking())
+                .creating(DocSummaryOverview.class)
                 .fromPrompt(String.format("""
                         Analyze the following document and provide a high-level summary and 5-10 core technical terms.
                         
@@ -114,28 +109,21 @@ public class AnkiAgent {
         return new InitialState(req, wsPath, markdown, overview, initialScored);
     }
 
-    /**
-     * Resume Phase: Load state from workspace and skip to filtering.
-     */
     @Action
-    public ExtractedState resume(AnkiResumeRequest req) throws IOException {
+    public ExtractedState resume(DocSummaryResumeRequest req) throws IOException {
         Path wsPath = workspace.initWorkspace(req.workspaceName());
         logToTerminal("Resuming from workspace: " + wsPath);
         
         ExtractedState saved = workspace.loadState(wsPath);
-        // Update maxCards from the new request if provided
         return new ExtractedState(saved.workspaceName(), saved.wsPath(), saved.ragPath(), 
-                                  req.maxCards(), saved.fullMarkdown(), saved.overview(), saved.finalTerms());
+                                  req.maxTerms(), saved.fullMarkdown(), saved.overview(), saved.finalTerms());
     }
 
-    /**
-     * Phase 2: Sequential Content Extraction.
-     */
     @Action
     public ExtractedState extractSequentially(InitialState state, ActionContext ctx) throws IOException {
         int chunkSize = 15000;
         List<String> chunks = splitText(state.fullMarkdown(), chunkSize);
-        logToTerminal(String.format("Scanning document in %d segments (Phase 2)...", chunks.size()));
+        logToTerminal(String.format("Scanning document in %d segments...", chunks.size()));
         
         List<ScoredTerm> allScoredTerms = new ArrayList<>(state.accumulatedTerms());
 
@@ -143,7 +131,6 @@ public class AnkiAgent {
             final int chunkIdx = i;
             String chunk = chunks.get(i);
             
-            // Only include high-score terms (>= 0.8) in context, limited to last 50
             String existingTermsSample = allScoredTerms.stream()
                     .filter(st -> st.score() >= 0.8)
                     .skip(Math.max(0, (long) (allScoredTerms.stream().filter(st -> st.score() >= 0.8).count() - 50)))
@@ -187,62 +174,48 @@ public class AnkiAgent {
                         addedCount++;
                     }
                 }
-                logToTerminal(String.format("[Phase 2] Segment %d/%d: Added %d terms. (Cumulative: %d)", 
+                logToTerminal(String.format("Segment %d/%d: Added %d terms. (Cumulative: %d)", 
                         chunkIdx + 1, chunks.size(), addedCount, allScoredTerms.size()));
             }
         }
 
         ExtractedState finalState = new ExtractedState(
                 state.request().workspaceName(), state.wsPath(), state.request().ragPath(), 
-                state.request().maxCards(), state.fullMarkdown(), state.overview(), allScoredTerms);
+                state.request().maxTerms(), state.fullMarkdown(), state.overview(), allScoredTerms);
         
-        // SAVE ALL TERMS AND STATE
         workspace.saveAllTerms(state.wsPath(), allScoredTerms);
         workspace.saveState(state.wsPath(), finalState);
-        logToTerminal("All terms saved to: " + state.wsPath().resolve("all_extracted_terms.json"));
 
         return finalState;
     }
 
-    /**
-     * Phase 3: Rank-based Filtering.
-     */
     @Action
     public RawTerms filterByRank(ExtractedState state) {
-        logToTerminal(String.format("[Phase 3] Filtering to top %d terms from %d extracted terms...", state.maxCards(), state.finalTerms().size()));
-
         List<ScoredTerm> topTerms = state.finalTerms().stream()
                 .sorted(Comparator.comparingDouble(ScoredTerm::score).reversed())
-                .limit(state.maxCards())
+                .limit(state.maxTerms())
                 .collect(Collectors.toList());
-        
-        logToTerminal("Top selection complete.");
         return new RawTerms(topTerms);
     }
 
-    /**
-     * Phase 4: Definition Finalization.
-     */
     @Action
-    public AnkiCardList finalizeDefinitions(RawTerms refinedTerms, ExtractedState state, ActionContext ctx) throws IOException {
-        logToTerminal(String.format("[Phase 4] Translating and defining %d terms...", refinedTerms.terms().size()));
+    public TermList finalizeDefinitions(RawTerms refinedTerms, ExtractedState state, ActionContext ctx) throws IOException {
+        logToTerminal(String.format("Defining %d terms using RAG...", refinedTerms.terms().size()));
 
         var searchOps = localRagTools.getOrOpenInstance(state.workspaceName(), state.ragPath());
         var rag = new JsonSafeToolishRag("doc_knowledge", "Knowledge base from the source document", searchOps);
 
-        List<AnkiTerm> finalCards = new ArrayList<>();
+        List<DefinedTerm> finalTerms = new ArrayList<>();
         
         int batchSize = 5;
         for (int i = 0; i < refinedTerms.terms().size(); i += batchSize) {
             int end = Math.min(i + batchSize, refinedTerms.terms().size());
             List<String> batch = refinedTerms.terms().subList(i, end).stream().map(ScoredTerm::term).toList();
             
-            logToTerminal(String.format("[Phase 4] Defining batch %d-%d of %d...", i + 1, end, refinedTerms.terms().size()));
-            
             try {
-                AnkiCardList definedBatch = ctx.ai().withLlm(LlmOptions.withLlmForRole("simple").withoutThinking())
+                TermList definedBatch = ctx.ai().withLlm(LlmOptions.withLlmForRole("simple").withoutThinking())
                         .withReference(rag)
-                        .creating(AnkiCardList.class)
+                        .creating(TermList.class)
                         .fromPrompt(String.format("""
                         # TASK
                         Provide Korean translations and concise Korean definitions for the provided English terms.
@@ -254,50 +227,30 @@ public class AnkiAgent {
                         %s
                         
                         # INSTRUCTIONS
-                        1. For each term, provide a card with:
+                        1. For each term, provide:
                            - **term**: "English Term (Korean Translation)"
-                           - **definition**: A concise Korean explanation suitable for Anki flashcards.
+                           - **definition**: A concise Korean explanation.
                         2. <example>
                            Term: Digital Signature (디지털 서명)
                            Definition: 메시지의 무결성과 발신자의 신원을 증명하기 위해 사용되는 전자적 서명 기술.
                            </example>
                         """, state.overview().summary(), String.join(", ", batch)));
                 
-                if (definedBatch.cards() != null) {
-                    finalCards.addAll(definedBatch.cards());
+                if (definedBatch.terms() != null) {
+                    finalTerms.addAll(definedBatch.terms());
                 }
             } catch (Exception e) {
                 logToTerminal("Batch failed: " + e.getMessage());
             }
         }
 
-        return new AnkiCardList(finalCards);
+        return new TermList(finalTerms);
     }
 
-    @AchievesGoal(description = "Anki CSV generated and notified")
+    @AchievesGoal(description = "Document summary and terms extracted")
     @Action
-    public AnkiResult generateAnkiCsv(AnkiCardList cards, ExtractedState state) throws IOException {
-        logToTerminal(String.format("[Phase 5] Saving %d cards to CSV...", cards.cards().size()));
-
-        List<String> termStrings = new ArrayList<>();
-        StringBuilder csv = new StringBuilder();
-        for (AnkiTerm card : cards.cards()) {
-            csv.append(escapeCsv(card.term())).append(",").append(escapeCsv(card.definition())).append("\n");
-            termStrings.add(card.term());
-        }
-
-        String filename = String.format("anki/%s_cards_ko.csv", state.workspaceName());
-        String savedPath = fileTools.saveGeneratedContent(filename, csv.toString());
-
-        logToTerminal("✅ Success: " + savedPath);
-        
-        // PUBLISH NOTIFICATION
-        ApplicationContextHolder.getPublisher().publishEvent(
-            new NotificationEvent("Anki 생성 완료", 
-                String.format("'%s' 문서에서 %d개의 카드가 생성되었습니다.", state.workspaceName(), cards.cards().size()))
-        );
-
-        return new AnkiResult(savedPath, state.overview().summary(), termStrings);
+    public DocSummaryResult finalizeResult(TermList terms, ExtractedState state) {
+        return new DocSummaryResult(state.overview().summary(), terms.terms());
     }
 
     private List<String> splitText(String text, int chunkSize) {
@@ -308,14 +261,5 @@ public class AnkiAgent {
             chunks.add(text.substring(i, Math.min(length, i + chunkSize)));
         }
         return chunks;
-    }
-
-    private String escapeCsv(String text) {
-        if (text == null) return "";
-        String escaped = text.replace("\"", "\"\"");
-        if (escaped.contains(",") || escaped.contains("\"") || escaped.contains("\n")) {
-            return "\"" + escaped + "\"";
-        }
-        return escaped;
     }
 }

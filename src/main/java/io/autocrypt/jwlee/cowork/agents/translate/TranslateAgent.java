@@ -21,7 +21,7 @@ import com.embabel.agent.prompt.persona.RoleGoalBackstory;
 import com.embabel.common.ai.model.LlmOptions;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
-import io.autocrypt.jwlee.cowork.agents.anki.AnkiAgent;
+import io.autocrypt.jwlee.cowork.agents.docsummary.DocSummaryAgent;
 import io.autocrypt.jwlee.cowork.core.hitl.ApplicationContextHolder;
 import io.autocrypt.jwlee.cowork.core.hitl.NotificationEvent;
 import io.autocrypt.jwlee.cowork.core.tools.LocalRagTools;
@@ -34,15 +34,15 @@ public class TranslateAgent {
     private final PdfParser parser;
     private final TranslateWorkspace workspace;
     private final ObjectMapper objectMapper;
-    private final AnkiAgent ankiAgent;
+    private final DocSummaryAgent docSummaryAgent;
     private final LocalRagTools localRagTools;
     private final RoleGoalBackstory translatorPersona;
 
-    public TranslateAgent(PdfParser parser, TranslateWorkspace workspace, ObjectMapper objectMapper, AnkiAgent ankiAgent, LocalRagTools localRagTools) {
+    public TranslateAgent(PdfParser parser, TranslateWorkspace workspace, ObjectMapper objectMapper, DocSummaryAgent docSummaryAgent, LocalRagTools localRagTools) {
         this.parser = parser;
         this.workspace = workspace;
         this.objectMapper = objectMapper;
-        this.ankiAgent = ankiAgent;
+        this.docSummaryAgent = docSummaryAgent;
         this.localRagTools = localRagTools;
         this.translatorPersona = new RoleGoalBackstory(
             "Senior Technical Translator",
@@ -76,7 +76,7 @@ public class TranslateAgent {
     public interface Stage {}
 
     @Action
-    public AnkiAgent.AnkiStartRequest start(TranslateStartRequest req, ActionContext ctx) throws IOException {
+    public DocSummaryAgent.DocSummaryRequest start(TranslateStartRequest req, ActionContext ctx) throws IOException {
         Path wsPath = workspace.initWorkspace(req.workspaceName());
         
         TranslateWorkspace.TranslateState state = new TranslateWorkspace.TranslateState();
@@ -88,9 +88,9 @@ public class TranslateAgent {
         Path ragPath = wsPath.resolve("rag");
         localRagTools.ingestUrlAt(req.pdfPath(), req.workspaceName(), ragPath);
 
-        System.out.println("Initiating glossary generation via AnkiAgent subagent (Target: 100 terms)...");
+        System.out.println("Initiating glossary generation via DocSummaryAgent subagent (Target: 100 terms)...");
         
-        return new AnkiAgent.AnkiStartRequest(
+        return new DocSummaryAgent.DocSummaryRequest(
             Path.of(req.pdfPath()),
             req.workspaceName(),
             ragPath,
@@ -99,22 +99,26 @@ public class TranslateAgent {
     }
 
     @Action
-    public AnkiAgent.AnkiResult runAnkiSubagent(AnkiAgent.AnkiStartRequest req) {
+    public DocSummaryAgent.DocSummaryResult runDocSummarySubagent(DocSummaryAgent.DocSummaryRequest req) {
         return RunSubagent.fromAnnotatedInstance(
-            ankiAgent,
-            AnkiAgent.AnkiResult.class
+            docSummaryAgent,
+            DocSummaryAgent.DocSummaryResult.class
         );
     }
 
     @Action
-    public Stage handleAnkiResult(AnkiAgent.AnkiResult result, TranslateStartRequest startReq, Ai ai) throws IOException {
+    public Stage handleDocSummaryResult(DocSummaryAgent.DocSummaryResult result, TranslateStartRequest startReq, Ai ai) throws IOException {
         Path wsPath = workspace.initWorkspace(startReq.workspaceName());
         TranslateWorkspace.TranslateState state = workspace.loadState(wsPath);
         
-        System.out.println("Processing AnkiAgent result and preparing translation chunks...");
+        System.out.println("Processing DocSummaryAgent result and preparing translation chunks...");
         
         // 1. Prepare glossary
-        String formattedGlossary = result.terms().stream().collect(Collectors.joining("; "));
+        List<String> termStrings = result.terms().stream()
+                .map(t -> String.format("%s (%s)", t.term(), t.definition()))
+                .collect(Collectors.toList());
+        String formattedGlossary = String.join("; ", termStrings);
+
         String prompt = String.format("""
             Based on the following document summary and key terminology, identify the Table of Contents (TOC) if present and common Boilerplate Patterns (headers, footers, etc.).
             
@@ -135,15 +139,11 @@ public class TranslateAgent {
         DocumentContext partialContext = ai.withLlm(LlmOptions.withLlmForRole("normal").withoutThinking())
             .creating(DocumentContext.class).fromPrompt(prompt);
 
-        Map<String, String> glossaryMap = result.terms().stream().map(t -> {
-            int parenIndex = t.lastIndexOf("(");
-            if (parenIndex != -1 && t.endsWith(")")) {
-                String en = t.substring(0, parenIndex).trim();
-                String ko = t.substring(parenIndex + 1, t.length() - 1).trim();
-                return Map.entry(en, ko);
-            }
-            return Map.entry(t, t);
-        }).collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue, (v1, v2) -> v1));
+        Map<String, String> glossaryMap = result.terms().stream().collect(Collectors.toMap(
+                DocSummaryAgent.DefinedTerm::term,
+                DocSummaryAgent.DefinedTerm::definition,
+                (v1, v2) -> v1
+        ));
 
         DocumentContext docContext = new DocumentContext(
             result.summary(),
