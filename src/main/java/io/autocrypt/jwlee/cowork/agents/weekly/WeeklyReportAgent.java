@@ -14,6 +14,7 @@ import io.autocrypt.jwlee.cowork.core.tools.CoreFileTools;
 import org.springframework.stereotype.Component;
 
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Map;
@@ -196,11 +197,11 @@ public class WeeklyReportAgent {
         @Action
         @AchievesGoal(description = "주간보고서가 최종 승인됨")
         public FinalWeeklyReport done() {
-            String dateStr = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyyMMdd"));
+            String dateStr = LocalDate.now(ZoneId.of("Asia/Seoul")).format(DateTimeFormatter.ofPattern("yyyyMMdd"));
             String filename = "weekly-report." + dateStr + ".md";
             
             StringBuilder sb = new StringBuilder();
-            sb.append("# 주간보고서 (").append(LocalDate.now()).append(")\n\n");
+            sb.append("# 주간보고서 (").append(LocalDate.now(ZoneId.of("Asia/Seoul"))).append(")\n\n");
             
             sb.append("## 1. 최종 요약\n\n");
             sb.append("### 공지/공유사항\n").append(finalReport.noticeHtml()).append("\n\n");

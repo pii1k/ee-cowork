@@ -16,6 +16,7 @@ import org.springframework.stereotype.Component;
 
 import java.io.IOException;
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
 import java.time.temporal.WeekFields;
@@ -61,7 +62,7 @@ public class ObsidianAgent {
         log("Starting daily note creation...");
         gitTools.syncVault();
 
-        LocalDate today = LocalDate.now();
+        LocalDate today = LocalDate.now(ZoneId.of("Asia/Seoul"));
         String relativePath = String.format("Calendar/Daily notes/%d/%02d/%s.md", 
                 today.getYear(), today.getMonthValue(), today.format(DAILY_FORMAT));
         
@@ -111,7 +112,7 @@ public class ObsidianAgent {
         log("Starting weekly note creation...");
         gitTools.syncVault();
 
-        LocalDate today = LocalDate.now();
+        LocalDate today = LocalDate.now(ZoneId.of("Asia/Seoul"));
         String thisWeek = today.format(WEEKLY_FORMAT);
         String relativePath = String.format("Calendar/Weekly notes/%s.md", thisWeek);
         
