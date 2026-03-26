@@ -1,11 +1,9 @@
 package io.autocrypt.jwlee.cowork.agents.translate;
 
-import com.embabel.agent.api.invocation.AgentInvocation;
 import com.embabel.agent.core.AgentPlatform;
-import com.embabel.agent.core.AgentProcess;
-import com.embabel.agent.core.AgentProcessStatusCode;
 import com.embabel.agent.core.EarlyTerminationPolicy;
 import com.embabel.agent.core.ProcessOptions;
+import io.autocrypt.jwlee.cowork.core.commands.BaseAgentCommand;
 import io.autocrypt.jwlee.cowork.core.hitl.ApplicationContextHolder;
 import io.autocrypt.jwlee.cowork.core.hitl.NotificationEvent;
 import org.springframework.shell.standard.ShellComponent;
@@ -16,33 +14,33 @@ import java.io.File;
 import java.util.concurrent.ExecutionException;
 
 @ShellComponent
-public class TranslateCommand {
-
-    private final AgentPlatform agentPlatform;
+public class TranslateCommand extends BaseAgentCommand {
 
     public TranslateCommand(AgentPlatform agentPlatform) {
-        this.agentPlatform = agentPlatform;
+        super(agentPlatform);
     }
 
-    private ProcessOptions getProcessOptions() {
-        return ProcessOptions.DEFAULT.withAdditionalEarlyTerminationPolicy(EarlyTerminationPolicy.maxActions(500));
+    private ProcessOptions getTranslateOptions(boolean p, boolean r) {
+        ProcessOptions options = getOptions(p, r);
+        return options.withAdditionalEarlyTerminationPolicy(EarlyTerminationPolicy.maxActions(500));
     }
 
-    private String handleProcessCompletion(AgentProcess process) {
-        if (process.getStatus() != AgentProcessStatusCode.COMPLETED) {
-            String errorMsg = "번역 프로세스가 비정상 종료되었습니다: " + process.getStatus();
+    private String handleProcessCompletion(TranslateAgent.TranslationResult result) {
+        if (result == null) {
+            String errorMsg = "번역 프로세스 결과가 없거나 비정상 종료되었습니다.";
             ApplicationContextHolder.getPublisher().publishEvent(new NotificationEvent("번역 실패", errorMsg));
             return "Error: " + errorMsg;
         }
 
-        TranslateAgent.TranslationResult result = process.resultOfType(TranslateAgent.TranslationResult.class);
-        return result != null ? result.message() : "Translation Process completed without a result.";
+        return result.message();
     }
 
     @ShellMethod(value = "Start a new translation task.", key = "translate start")
     public String start(
             @ShellOption(help = "Path to the PDF file") String pdf,
-            @ShellOption(defaultValue = ".translate_workspace", help = "Workspace directory name") String workspace) throws ExecutionException, InterruptedException {
+            @ShellOption(defaultValue = ".translate_workspace", help = "Workspace directory name") String workspace,
+            @ShellOption(value = {"-p", "--show-prompts"}, defaultValue = "false", help = "Log prompts sent to the LLM") boolean p,
+            @ShellOption(value = {"-r", "--show-responses"}, defaultValue = "false", help = "Log LLM responses") boolean r) throws ExecutionException, InterruptedException {
 
         if (!new File(pdf).exists()) {
             return "Error: PDF file not found at " + pdf;
@@ -50,22 +48,20 @@ public class TranslateCommand {
 
         System.out.println("Starting translation process for " + pdf + " in workspace " + workspace);
 
-        AgentProcess process = AgentInvocation
-                .create(agentPlatform, TranslateAgent.TranslationResult.class)
-                .withProcessOptions(getProcessOptions())
-                .runAsync(new TranslateAgent.TranslateStartRequest(pdf, workspace))
-                .get();
+        TranslateAgent.TranslationResult result = invokeAgent(
+                TranslateAgent.TranslationResult.class,
+                getTranslateOptions(p, r),
+                new TranslateAgent.TranslateStartRequest(pdf, workspace)
+        );
 
-        while (!process.getFinished()) {
-            Thread.sleep(500);
-        }
-
-        return handleProcessCompletion(process);
+        return handleProcessCompletion(result);
     }
 
     @ShellMethod(value = "Resume an existing translation task.", key = "translate resume")
     public String resume(
-            @ShellOption(defaultValue = ".translate_workspace", help = "Workspace directory name") String workspace) throws ExecutionException, InterruptedException {
+            @ShellOption(defaultValue = ".translate_workspace", help = "Workspace directory name") String workspace,
+            @ShellOption(value = {"-p", "--show-prompts"}, defaultValue = "false", help = "Log prompts sent to the LLM") boolean p,
+            @ShellOption(value = {"-r", "--show-responses"}, defaultValue = "false", help = "Log LLM responses") boolean r) throws ExecutionException, InterruptedException {
 
         File wsDir = new File(workspace);
         if (!wsDir.exists()) {
@@ -74,16 +70,12 @@ public class TranslateCommand {
 
         System.out.println("Resuming translation process from workspace " + workspace);
 
-        AgentProcess process = AgentInvocation
-                .create(agentPlatform, TranslateAgent.TranslationResult.class)
-                .withProcessOptions(getProcessOptions())
-                .runAsync(new TranslateAgent.TranslateResumeRequest(workspace))
-                .get();
+        TranslateAgent.TranslationResult result = invokeAgent(
+                TranslateAgent.TranslationResult.class,
+                getTranslateOptions(p, r),
+                new TranslateAgent.TranslateResumeRequest(workspace)
+        );
 
-        while (!process.getFinished()) {
-            Thread.sleep(500);
-        }
-
-        return handleProcessCompletion(process);
+        return handleProcessCompletion(result);
     }
 }

@@ -1,8 +1,6 @@
 package io.autocrypt.jwlee.cowork.agents.weekly;
 
-import com.embabel.agent.api.invocation.AgentInvocation;
 import com.embabel.agent.core.AgentPlatform;
-import com.embabel.agent.core.AgentProcess;
 import io.autocrypt.jwlee.cowork.agents.weekly.dto.FinalWeeklyReport;
 import io.autocrypt.jwlee.cowork.agents.weekly.dto.JiraIssueInfo;
 import io.autocrypt.jwlee.cowork.agents.weekly.dto.JiraIssueList;
@@ -11,6 +9,7 @@ import io.autocrypt.jwlee.cowork.agents.weekly.dto.RawWeeklyData;
 import io.autocrypt.jwlee.cowork.agents.weekly.service.ConfluenceService;
 import io.autocrypt.jwlee.cowork.agents.weekly.service.JiraExcelService;
 import io.autocrypt.jwlee.cowork.agents.weekly.service.RealConfluenceService;
+import io.autocrypt.jwlee.cowork.core.commands.BaseAgentCommand;
 import org.springframework.shell.standard.ShellComponent;
 import org.springframework.shell.standard.ShellMethod;
 import org.springframework.shell.standard.ShellOption;
@@ -19,20 +18,22 @@ import java.util.List;
 import java.util.concurrent.ExecutionException;
 
 @ShellComponent
-public class WeeklyReportCommand {
+public class WeeklyReportCommand extends BaseAgentCommand {
 
-    private final AgentPlatform agentPlatform;
     private final ConfluenceService confluenceService;
     private final JiraExcelService jiraExcelService;
 
     public WeeklyReportCommand(AgentPlatform agentPlatform, ConfluenceService confluenceService, JiraExcelService jiraExcelService) {
-        this.agentPlatform = agentPlatform;
+        super(agentPlatform);
         this.confluenceService = confluenceService;
         this.jiraExcelService = jiraExcelService;
     }
 
     @ShellMethod(value = "주간보고서를 자동 생성합니다.", key = "generate-weekly")
-    public String generateWeekly(@ShellOption(defaultValue = "") String meetingPageId) throws ExecutionException, InterruptedException {
+    public String generateWeekly(
+            @ShellOption(defaultValue = "") String meetingPageId,
+            @ShellOption(value = {"-p", "--show-prompts"}, defaultValue = "false", help = "Log prompts sent to the LLM") boolean p,
+            @ShellOption(value = {"-r", "--show-responses"}, defaultValue = "false", help = "Log LLM responses") boolean r) throws ExecutionException, InterruptedException {
         System.out.println("\n[System] 주간보고서 생성 준비 중...");
         
         String finalMeetingId = meetingPageId;
@@ -70,16 +71,12 @@ public class WeeklyReportCommand {
         }
 
         System.out.println("[System] 에이전트 분석 시작...");
-        AgentProcess process = AgentInvocation
-                .create(agentPlatform, FinalWeeklyReport.class)
-                .runAsync(rawData, new JiraIssueList(jiraIssues))
-                .get();
-
-        while (!process.getFinished()) {
-            Thread.sleep(500);
-        }
-
-        FinalWeeklyReport result = process.resultOfType(FinalWeeklyReport.class);
+        FinalWeeklyReport result = invokeAgent(
+                FinalWeeklyReport.class,
+                getOptions(p, r),
+                rawData, 
+                new JiraIssueList(jiraIssues)
+        );
 
         if (result != null) {
             return "[System] 주간보고서 생성 완료!\n================================\n[공지/공유사항]\n" + result.noticeHtml() + "\n\n[요청/대기사항]\n" + result.requestHtml() + "\n================================";

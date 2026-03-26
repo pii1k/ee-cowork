@@ -1,51 +1,45 @@
 package io.autocrypt.jwlee.cowork.agents.obsidian;
 
-import com.embabel.agent.api.invocation.AgentInvocation;
 import com.embabel.agent.core.AgentPlatform;
-import com.embabel.agent.core.AgentProcess;
+import io.autocrypt.jwlee.cowork.core.commands.BaseAgentCommand;
 import org.springframework.shell.standard.ShellComponent;
 import org.springframework.shell.standard.ShellMethod;
+import org.springframework.shell.standard.ShellOption;
 
 import java.util.concurrent.ExecutionException;
 
 @ShellComponent
-public class ObsidianCommand {
-
-    private final AgentPlatform agentPlatform;
+public class ObsidianCommand extends BaseAgentCommand {
 
     public ObsidianCommand(AgentPlatform agentPlatform) {
-        this.agentPlatform = agentPlatform;
+        super(agentPlatform);
     }
 
     @ShellMethod(key = "obsidian-daily", value = "Create a new daily note in Obsidian vault")
-    public String daily() throws ExecutionException, InterruptedException {
+    public String daily(
+            @ShellOption(value = {"-p", "--show-prompts"}, defaultValue = "false", help = "Log prompts sent to the LLM") boolean p,
+            @ShellOption(value = {"-r", "--show-responses"}, defaultValue = "false", help = "Log LLM responses") boolean r
+    ) throws ExecutionException, InterruptedException {
         System.out.println("[System] Starting Obsidian Daily Note Agent...");
-        AgentProcess process = AgentInvocation
-                .create(agentPlatform, ObsidianAgent.ObsidianResult.class)
-                .runAsync(new ObsidianAgent.DailyRequest())
-                .get();
-
-        while (!process.getFinished()) {
-            Thread.sleep(500);
-        }
-
-        ObsidianAgent.ObsidianResult result = process.resultOfType(ObsidianAgent.ObsidianResult.class);
+        ObsidianAgent.ObsidianResult result = invokeAgent(
+                ObsidianAgent.ObsidianResult.class, 
+                getOptions(p, r),
+                new ObsidianAgent.DailyRequest());
+        
         return result != null ? result.message() : "Failed to generate daily note.";
     }
 
     @ShellMethod(key = "obsidian-weekly", value = "Create a new weekly note and cleanup daily notes")
-    public String weekly() throws ExecutionException, InterruptedException {
+    public String weekly(
+            @ShellOption(value = {"-p", "--show-prompts"}, defaultValue = "false", help = "Log prompts sent to the LLM") boolean p,
+            @ShellOption(value = {"-r", "--show-responses"}, defaultValue = "false", help = "Log LLM responses") boolean r
+    ) throws ExecutionException, InterruptedException {
         System.out.println("[System] Starting Obsidian Weekly Note Agent...");
-        AgentProcess process = AgentInvocation
-                .create(agentPlatform, ObsidianAgent.ObsidianResult.class)
-                .runAsync(new ObsidianAgent.WeeklyRequest())
-                .get();
-
-        while (!process.getFinished()) {
-            Thread.sleep(500);
-        }
-
-        ObsidianAgent.ObsidianResult result = process.resultOfType(ObsidianAgent.ObsidianResult.class);
+        ObsidianAgent.ObsidianResult result = invokeAgent(
+                ObsidianAgent.ObsidianResult.class, 
+                getOptions(p, r),
+                new ObsidianAgent.WeeklyRequest());
+        
         return result != null ? result.message() : "Failed to generate weekly note.";
     }
 }

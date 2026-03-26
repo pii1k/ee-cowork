@@ -1,9 +1,8 @@
 package io.autocrypt.jwlee.cowork.agents.presales;
 
 import com.embabel.agent.api.common.Ai;
-import com.embabel.agent.api.invocation.AgentInvocation;
 import com.embabel.agent.core.AgentPlatform;
-import com.embabel.agent.core.AgentProcess;
+import io.autocrypt.jwlee.cowork.core.commands.BaseAgentCommand;
 import io.autocrypt.jwlee.cowork.core.tools.CoreWorkspaceProvider;
 import io.autocrypt.jwlee.cowork.core.tools.LocalRagTools;
 import org.springframework.shell.standard.ShellComponent;
@@ -13,25 +12,25 @@ import org.springframework.shell.standard.ShellOption;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.concurrent.ExecutionException;
 
 @ShellComponent
-public class PresalesCommand {
+public class PresalesCommand extends BaseAgentCommand {
 
     private final PresalesAgent agent;
     private final PresalesWorkspace workspace;
     private final LocalRagTools ragTools;
     private final Ai ai;
-    private final AgentPlatform agentPlatform;
     private final CoreWorkspaceProvider workspaceProvider;
     private static final String AGENT_NAME = "presales";
 
     public PresalesCommand(PresalesAgent agent, PresalesWorkspace workspace, LocalRagTools ragTools, 
                           Ai ai, AgentPlatform agentPlatform, CoreWorkspaceProvider workspaceProvider) {
+        super(agentPlatform);
         this.agent = agent;
         this.workspace = workspace;
         this.ragTools = ragTools;
         this.ai = ai;
-        this.agentPlatform = agentPlatform;
         this.workspaceProvider = workspaceProvider;
     }
 
@@ -50,7 +49,9 @@ public class PresalesCommand {
     @ShellMethod(value = "Start full presales analysis from customer inquiry (email, chat, transcript).", key = "presales-start")
     public String start(
             @ShellOption(value = "--source-path", help = "Path to the customer inquiry file (txt, md, etc.)") String sourcePath,
-            @ShellOption(value = "--ws", help = "Workspace name") String wsName) throws IOException {
+            @ShellOption(value = "--ws", help = "Workspace name") String wsName,
+            @ShellOption(value = {"-p", "--show-prompts"}, defaultValue = "false", help = "Log prompts sent to the LLM") boolean p,
+            @ShellOption(value = {"-r", "--show-responses"}, defaultValue = "false", help = "Log LLM responses") boolean r) throws IOException, ExecutionException, InterruptedException {
         
         Path wsPath = workspace.initWorkspace(wsName);
         String sourceContent = Files.readString(Path.of(sourcePath).toAbsolutePath().normalize());
@@ -66,12 +67,12 @@ public class PresalesCommand {
         // 2. Phase 1: Refine Requirements
         System.out.println("Phase 1: Refining requirements using tech-ref RAG at " + techRagPath);
         
-        AgentProcess process = AgentInvocation
-                .create(agentPlatform, String.class)
-                .runAsync(new PresalesAgent.RequirementRequest(sourceContent, techRagPath))
-                .join();
+        String crs = invokeAgent(
+                String.class,
+                getOptions(p, r),
+                new PresalesAgent.RequirementRequest(sourceContent, techRagPath)
+        );
         
-        String crs = process.resultOfType(String.class);
         workspace.saveCrs(wsPath, crs);
 
         // 3. Save State (RAG 경로 저장)
@@ -85,11 +86,14 @@ public class PresalesCommand {
         ));
 
         // 4. Phase 2: Gap Analysis & Finalization
-        return runPhase2(wsPath, wsName, language, crs, productRagPath);
+        return runPhase2(wsPath, wsName, language, crs, productRagPath, p, r);
     }
 
     @ShellMethod(value = "Resume analysis using modified crs.md in the workspace.", key = "presales-resume")
-    public String resume(@ShellOption(value = "--ws", help = "Workspace name") String wsName) throws IOException {
+    public String resume(
+            @ShellOption(value = "--ws", help = "Workspace name") String wsName,
+            @ShellOption(value = {"-p", "--show-prompts"}, defaultValue = "false", help = "Log prompts sent to the LLM") boolean p,
+            @ShellOption(value = {"-r", "--show-responses"}, defaultValue = "false", help = "Log LLM responses") boolean r) throws IOException, ExecutionException, InterruptedException {
         Path wsPath = workspace.getWorkspacePath(wsName);
         PresalesWorkspace.PresalesState state = workspace.loadState(wsPath);
         
@@ -101,18 +105,17 @@ public class PresalesCommand {
         String modifiedCrs = workspace.loadCrs(wsPath);
         Path productRagPath = Path.of(state.productRagPath());
         
-        return runPhase2(wsPath, wsName, state.language(), modifiedCrs, productRagPath);
+        return runPhase2(wsPath, wsName, state.language(), modifiedCrs, productRagPath, p, r);
     }
 
-    private String runPhase2(Path wsPath, String wsName, String language, String crs, Path productRagPath) throws IOException {
+    private String runPhase2(Path wsPath, String wsName, String language, String crs, Path productRagPath, boolean p, boolean r) throws IOException, ExecutionException, InterruptedException {
         System.out.println("Phase 2: Analyzing gap and generating final report using product-spec RAG at " + productRagPath);
         
-        AgentProcess process = AgentInvocation
-                .create(agentPlatform, PresalesAgent.AnalysisResult.class)
-                .runAsync(new PresalesAgent.GapAnalysisRequest(crs, language, productRagPath))
-                .join();
-        
-        PresalesAgent.AnalysisResult result = process.resultOfType(PresalesAgent.AnalysisResult.class);
+        PresalesAgent.AnalysisResult result = invokeAgent(
+                PresalesAgent.AnalysisResult.class,
+                getOptions(p, r),
+                new PresalesAgent.GapAnalysisRequest(crs, language, productRagPath)
+        );
 
         workspace.saveAnalysis(wsPath, result.gapAnalysis());
         workspace.saveQuestions(wsPath, result.questions());
