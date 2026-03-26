@@ -83,6 +83,10 @@ The core logic blocks.
 When implementing an agent from this DSL, the coding agent MUST adhere to these rules:
 
 ### 3.1 Architecture & Injection
+- **Modulith Package Structure**:
+  - Each agent MUST reside in its own top-level package directly under `io.autocrypt.jwlee.cowork` (e.g., `chatbotagent`, `weeklyagent`).
+  - **Public API**: Classes at the root of the agent package are public and intended for inter-agent communication (e.g., using another agent as a sub-agent). Internal implementation details should be placed in sub-packages.
+  - **Verification**: All changes MUST pass Spring Modulith verification tests (`ApplicationModules.of(JwleeCoworkApplication.class).verify()`). Illegal dependencies between modules are strictly forbidden. Shared logic must be moved to the `core` package.
 - **Action Arguments**: `Action` methods MUST NOT take Spring-managed beans. Inject beans into the constructor and use them inside the method.
 - **New Tool Strategy**: 
   - If a required feature doesn't exist in current services, **CREATE** a new `@Component` (e.g., `MyAgentTools`) or a Service.
@@ -136,12 +140,11 @@ When implementing an agent from this DSL, the coding agent MUST adhere to these 
 5.  Ensure all identified "Pitfalls" are explicitly addressed in the "Action" or "Implementation Guidelines" sections of the generated file.
 
 ### For Coding Agents (Gemini CLI / Claude Code):
-1.  **Relocation (IMPORTANT)**: Before starting implementation, **MOVE** the `DSL-{agent-name}.md` from `guides/DSLs/` to the agent's specific vertical slice package directory (e.g., `src/main/java/.../agents/{agent-name}/`).
+1.  **Relocation (IMPORTANT)**: Before starting implementation, **MOVE** the `DSL-{agent-name}.md` from `guides/DSLs/` to the agent's specific vertical slice package directory (e.g., `src/main/java/io/autocrypt/jwlee/cowork/{agent-name}agent/`).
 2.  Read the relocated DSL and implement the Java code, DTOs, and Prompts strictly following its instructions.
 3.  **Documentation (Final Step)**: After successful implementation and validation, **CREATE** a `USE.md` file in the same directory. This file must contain:
     - Detailed CLI command usage (with parameter examples).
     - Description of expected outputs and where to find them.
     - Any prerequisites (e.g., Python environment, specific API tokens).
-3.  If any part of the DSL is ambiguous, refer back to `guides/embabel-0.3.4-full-guide.md` and `guides/embabel-few-shot.md` for ground truth.
-es/embabel-few-shot.md` for ground truth.
-4.  Implement the Java code, DTOs, and Prompts strictly following the DSL and the Pitfall List.
+4.  If any part of the DSL is ambiguous, refer back to `guides/embabel-0.3.4-full-guide.md` and `guides/embabel-few-shot.md` for ground truth.
+5.  Implement the Java code, DTOs, and Prompts strictly following the DSL and the Pitfall List.

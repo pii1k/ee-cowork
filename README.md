@@ -75,18 +75,18 @@ export GEMINI_API_KEY="your-api-key"
 
 각 에이전트의 상세한 CLI 명령어와 사용 방법은 해당 패키지 디렉토리의 **`USE.md`** 파일을 참조하세요.
 
-1. **[MorningBriefingAgent](src/main/java/io/autocrypt/jwlee/cowork/agents/morningbriefing/USE.md)**: 어제자 Jira/Confluence 활동 요약 및 오늘 할 일 제안
-2. **[ObsidianAgent](src/main/java/io/autocrypt/jwlee/cowork/agents/obsidian/USE.md)**: Obsidian 일일/주간 노트 생성 및 Git 동기화
-3. **[PresalesAgent](src/main/java/io/autocrypt/jwlee/cowork/agents/presales/USE.md)**: 기술 요구사항 분석 및 제품 Gap 분석
-4. **[TranslateAgent](src/main/java/io/autocrypt/jwlee/cowork/agents/translate/USE.md)**: 기술 문서 PDF 전문 번역
-5. **[DocSummaryAgent](src/main/java/io/autocrypt/jwlee/cowork/agents/docsummary/USE.md)**: 문서 핵심 용어 추출 및 요약
-6. **[AgentGenerationPlanAgent](src/main/java/io/autocrypt/jwlee/cowork/agents/planagent/USE.md)**: 신규 에이전트 DSL 설계 자동화
+1. **[MorningBriefingAgent](src/main/java/io/autocrypt/jwlee/cowork/morningbriefingagent/USE.md)**: 어제자 Jira/Confluence 활동 요약 및 오늘 할 일 제안
+2. **[ObsidianAgent](src/main/java/io/autocrypt/jwlee/cowork/obsidianagent/USE.md)**: Obsidian 일일/주간 노트 생성 및 Git 동기화
+3. **[PresalesAgent](src/main/java/io/autocrypt/jwlee/cowork/presalesagent/USE.md)**: 기술 요구사항 분석 및 제품 Gap 분석
+4. **[TranslateAgent](src/main/java/io/autocrypt/jwlee/cowork/translateagent/USE.md)**: 기술 문서 PDF 전문 번역
+5. **[DocSummaryAgent](src/main/java/io/autocrypt/jwlee/cowork/docsummaryagent/USE.md)**: 문서 핵심 용어 추출 및 요약
+6. **[AgentGenerationPlanAgent](src/main/java/io/autocrypt/jwlee/cowork/planagentagent/USE.md)**: 신규 에이전트 DSL 설계 자동화
 
 ---
 
 ## 🤖 AI를 이용한 에이전트 설계 자동화 (Agent Planning)
 
-에이전트 설계를 자동화하려면 `plan-agent` 명령어를 사용하세요. 상세한 가이드는 **[PlanAgent USE.md](src/main/java/io/autocrypt/jwlee/cowork/agents/planagent/USE.md)**에 기술되어 있습니다.
+에이전트 설계를 자동화하려면 `plan-agent` 명령어를 사용하세요. 상세한 가이드는 **[PlanAgent USE.md](src/main/java/io/autocrypt/jwlee/cowork/planagentagent/USE.md)**에 기술되어 있습니다.
 
 ---
 
@@ -116,7 +116,7 @@ export GEMINI_API_KEY="your-api-key"
 
 새로운 기능을 가진 AI 명령어(에이전트)를 추가하고 싶다면, 다음 단계를 따르세요.
 
-1. **템플릿 복사**: `src/main/java/io/autocrypt/jwlee/cowork/agents/scaffold` 패키지를 복사하여 `agents.myfeature`와 같은 새로운 패키지를 생성합니다.
+1. **템플릿 복사**: `src/main/java/io/autocrypt/jwlee/cowork/scaffold` 패키지를 복사하여 `agents.myfeature`와 같은 새로운 패키지를 생성합니다.agent
 2. **이름 변경**: `Scaffold`로 시작하는 클래스명(Agent, Command, Tools, State)을 개발하려는 기능에 맞게 변경합니다. (예: `ReviewAgent`, `ReviewCommand` 등)
 3. **의존성 주입**: `Agent` 클래스에서 필요한 도구(`CoreFileTools`, `PromptProvider` 등)를 생성자(Constructor Injection)를 통해 주입받도록 구성합니다.
 4. **프롬프트 외부화**: 프롬프트와 페르소나를 `src/main/resources/prompts/agents/{myfeature}/` 하위에 파일로 작성하고, `PromptProvider`를 통해 로드하여 사용합니다. (Jinja 템플릿 권장)
