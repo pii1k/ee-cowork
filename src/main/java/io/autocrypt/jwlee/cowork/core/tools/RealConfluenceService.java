@@ -1,5 +1,7 @@
 package io.autocrypt.jwlee.cowork.core.tools;
 
+import org.jsoup.Jsoup;
+import org.jsoup.safety.Safelist;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Primary;
 import org.springframework.http.HttpEntity;
@@ -45,6 +47,34 @@ public class RealConfluenceService implements ConfluenceService {
         return headers;
     }
 
+    /**
+     * RAG 성능 향상 및 토큰 절약을 위해 Confluence Storage XML을 경량화된 HTML로 정제합니다.
+     * LLM이 구조를 파악하는 데 필요한 핵심 태그(표, 리스트, 문단, 제목 등)만 남기고,
+     * 불필요한 컨플루언스 매크로 껍데기나 스타일/ID 속성은 모두 제거하되, 내부 텍스트는 보존합니다.
+     */
+    private String cleanHtmlForLlm(String storageHtml) {
+        if (storageHtml == null || storageHtml.isBlank()) {
+            return "";
+        }
+
+        // LLM에게 필요한 핵심 시맨틱 태그만 허용 (모든 속성 제거)
+        Safelist safelist = Safelist.none()
+                .addTags(
+                        "h1", "h2", "h3", "h4", "h5", "h6",
+                        "p", "br", "hr",
+                        "b", "i", "strong", "em", "code", "pre",
+                        "ul", "ol", "li",
+                        "table", "thead", "tbody", "tr", "th", "td"
+                );
+
+        // Jsoup.clean은 허용되지 않은 태그의 껍데기를 벗기고 내부 텍스트를 위로 올리며,
+        // 허용된 태그라 하더라도 안전 목록에 지정되지 않은 속성(class, style, id 등)은 모두 지웁니다.
+        String cleaned = Jsoup.clean(storageHtml, safelist);
+
+        // LLM이 하나의 문서 단위로 인식하도록 명시적인 루트 태그로 감싸서 반환
+        return "<confluence>\n" + cleaned + "\n</confluence>";
+    }
+
     @Override
     @SuppressWarnings("unchecked")
     public ConfluencePageInfo getCurrentOkr() {
@@ -72,7 +102,7 @@ public class RealConfluenceService implements ConfluenceService {
             String pageId = (String) results.get(0).get("id");
             String title = (String) results.get(0).get("title");
             
-            // 찾은 페이지의 본문 반환
+            // 찾은 페이지의 본문을 정제하여 반환
             return new ConfluencePageInfo(pageId, title, getPageStorage(pageId));
         } catch (Exception e) {
             e.printStackTrace();
@@ -101,7 +131,7 @@ public class RealConfluenceService implements ConfluenceService {
             String pageId = (String) results.get(0).get("id");
             String title = (String) results.get(0).get("title");
 
-            // 찾은 페이지의 본문 반환
+            // 찾은 페이지의 본문을 정제하여 반환
             return new ConfluencePageInfo(pageId, title, getPageStorage(pageId));
         } catch (Exception e) {
             e.printStackTrace();
@@ -124,7 +154,10 @@ public class RealConfluenceService implements ConfluenceService {
 
             Map<String, Object> body = (Map<String, Object>) responseBody.get("body");
             Map<String, Object> storage = (Map<String, Object>) body.get("storage");
-            return (String) storage.get("value");
+            String rawHtml = (String) storage.get("value");
+            
+            // LLM용으로 HTML을 경량화하여 반환
+            return cleanHtmlForLlm(rawHtml);
         } catch (Exception e) {
             return "";
         }

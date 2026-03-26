@@ -22,14 +22,14 @@ class ConfluenceServiceIntegrationTest extends BaseIntegrationTest {
         // Then
         System.out.println("====== [RESULT] Current OKR Title: " + result.title() + " ======");
         System.out.println("====== [RESULT] Current OKR Content Length: " + result.content().length() + " ======");
-        if (result.content().length() > 1000) {
-            System.out.println("====== [RESULT] Preview: \n" + result.content().substring(0, 1000) + "\n... ======");
+        if (result.content().length() > 300) {
+            System.out.println("====== [RESULT] Preview: \n" + result.content().substring(0, 300) + "\n... ======");
         } else if (!result.isEmpty()) {
             System.out.println("====== [RESULT] Content: \n" + result.content() + "\n======");
         }
 
         assertThat(result.content()).isNotNull();
-        assertThat(result.content()).isNotEmpty(); // 실제 데이터가 조회되어야 함
+        assertThat(result.content()).isNotEmpty();
     }
 
     @Test
@@ -40,13 +40,13 @@ class ConfluenceServiceIntegrationTest extends BaseIntegrationTest {
         // Then
         System.out.println("====== [RESULT] Current Weekly Report Title: " + result.title() + " ======");
         System.out.println("====== [RESULT] Current Weekly Report Content Length: " + result.content().length() + " ======");
-        if (result.content().length() > 1000) {
-            System.out.println("====== [RESULT] Preview: \n" + result.content().substring(0, 1000) + "\n... ======");
+        if (result.content().length() > 300) {
+            System.out.println("====== [RESULT] Preview: \n" + result.content().substring(0, 300) + "\n... ======");
         } else if (!result.isEmpty()) {
             System.out.println("====== [RESULT] Content: \n" + result.content() + "\n======");
         }
 
         assertThat(result.content()).isNotNull();
-        assertThat(result.content()).isNotEmpty(); // 실제 데이터가 조회되어야 함
+        assertThat(result.content()).isNotEmpty();
     }
 }
