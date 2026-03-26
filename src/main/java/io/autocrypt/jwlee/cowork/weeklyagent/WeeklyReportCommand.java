@@ -7,7 +7,7 @@ import io.autocrypt.jwlee.cowork.weeklyagent.dto.JiraIssueList;
 import io.autocrypt.jwlee.cowork.core.dto.MeetingInfo;
 import io.autocrypt.jwlee.cowork.weeklyagent.dto.RawWeeklyData;
 import io.autocrypt.jwlee.cowork.core.tools.ConfluenceService;
-import io.autocrypt.jwlee.cowork.core.tools.JiraExcelService;
+import io.autocrypt.jwlee.cowork.core.tools.JiraService;
 import io.autocrypt.jwlee.cowork.core.tools.RealConfluenceService;
 import io.autocrypt.jwlee.cowork.core.commands.BaseAgentCommand;
 import org.springframework.shell.standard.ShellComponent;
@@ -21,12 +21,12 @@ import java.util.concurrent.ExecutionException;
 public class WeeklyReportCommand extends BaseAgentCommand {
 
     private final ConfluenceService confluenceService;
-    private final JiraExcelService jiraExcelService;
+    private final JiraService jiraService;
 
-    public WeeklyReportCommand(AgentPlatform agentPlatform, ConfluenceService confluenceService, JiraExcelService jiraExcelService) {
+    public WeeklyReportCommand(AgentPlatform agentPlatform, ConfluenceService confluenceService, JiraService jiraService) {
         super(agentPlatform);
         this.confluenceService = confluenceService;
-        this.jiraExcelService = jiraExcelService;
+        this.jiraService = jiraService;
     }
 
     @ShellMethod(value = "주간보고서를 자동 생성합니다.", key = "generate-weekly")
@@ -64,7 +64,7 @@ public class WeeklyReportCommand extends BaseAgentCommand {
         
         List<JiraIssueInfo> jiraIssues;
         try {
-            jiraIssues = jiraExcelService.readIssues();
+            jiraIssues = jiraService.readIssues("-1w");
         } catch (Exception e) {
             jiraIssues = List.of();
             System.out.println("[Warning] Jira 데이터 수집 실패. 빈 데이터로 진행합니다.");

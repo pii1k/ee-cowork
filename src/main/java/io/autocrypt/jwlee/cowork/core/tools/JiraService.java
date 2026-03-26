@@ -1,6 +1,12 @@
 package io.autocrypt.jwlee.cowork.core.tools;
 
-import io.autocrypt.jwlee.cowork.core.dto.JiraIssueInfo;
+import java.nio.charset.StandardCharsets;
+import java.util.Base64;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
+
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
@@ -9,34 +15,33 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
-import java.util.*;
-import java.util.stream.Collectors;
+import io.autocrypt.jwlee.cowork.core.dto.JiraIssueInfo;
 
 @Service
-public class JiraExcelService {
+public class JiraService {
 
     private final RestTemplate restTemplate;
+    private final String baseUrl;
+    private final String projectKey;
+    private final String email;
+    private final String apiToken;
 
-    @Value("${app.jira.baseUrl:https://auto-jira.atlassian.net}")
-    private String baseUrl;
-
-    @Value("${app.jira.projectKey:VP}")
-    private String projectKey;
-
-    @Value("${app.confluence.email:jwlee@autocrypt.io}")
-    private String email;
-
-    @Value("${app.confluence.apiToken:}")
-    private String apiToken;
-
-    public JiraExcelService(RestTemplate restTemplate) {
+    public JiraService(RestTemplate restTemplate,
+                       @Value("${app.jira.baseUrl:https://auto-jira.atlassian.net}") String baseUrl,
+                       @Value("${app.jira.projectKey:VP}") String projectKey,
+                       @Value("${app.confluence.email:jwlee@autocrypt.io}") String email,
+                       @Value("${app.confluence.apiToken:}") String apiToken) {
         this.restTemplate = restTemplate;
+        this.baseUrl = baseUrl;
+        this.projectKey = projectKey;
+        this.email = email;
+        this.apiToken = apiToken;
     }
 
     private HttpHeaders createAuthHeaders() {
         String auth = email + ":" + apiToken;
-        byte[] encodedAuth = Base64.getEncoder().encode(auth.getBytes());
-        String authHeader = "Basic " + new String(encodedAuth);
+        byte[] encodedAuth = Base64.getEncoder().encode(auth.getBytes(StandardCharsets.UTF_8));
+        String authHeader = "Basic " + new String(encodedAuth, StandardCharsets.UTF_8);
 
         HttpHeaders headers = new HttpHeaders();
         headers.set("Authorization", authHeader);
@@ -45,27 +50,30 @@ public class JiraExcelService {
     }
 
     @SuppressWarnings("unchecked")
-    public List<JiraIssueInfo> readIssues() {
-        String jql = String.format("project = \"%s\" AND updated >= \"-4w\" ORDER BY updated DESC", projectKey);
+    public List<JiraIssueInfo> readIssues(String updatedSince) {
+        String jql = String.format("project = \"%s\" AND updated >= \"%s\" ORDER BY updated DESC", 
+                                   projectKey, updatedSince);
         
         String url = baseUrl + "/rest/api/3/search/jql";
         
         Map<String, Object> body = new HashMap<>();
         body.put("jql", jql);
-        body.put("maxResults", 100);
-        body.put("fields", List.of("summary", "status", "assignee", "components"));
+        body.put("maxResults", 300);
+        body.put("fields", List.of("summary", "status", "assignee", "components", "created", "updated"));
 
         HttpEntity<Map<String, Object>> entity = new HttpEntity<>(body, createAuthHeaders());
 
         try {
             ResponseEntity<Map> response = restTemplate.exchange(url, HttpMethod.POST, entity, Map.class);
+            Map bodyResponse = response.getBody();
+            
             if (!response.getStatusCode().is2xxSuccessful()) {
                 return List.of();
             }
-            Map bodyResponse = response.getBody();
             if (bodyResponse == null) {
                 return List.of();
             }
+            
             List<Map<String, Object>> issues = (List<Map<String, Object>>) bodyResponse.get("issues");
 
             if (issues == null) {

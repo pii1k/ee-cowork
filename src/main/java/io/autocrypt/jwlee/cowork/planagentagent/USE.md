@@ -11,7 +11,7 @@
 
 ### 실행 예시
 ```bash
-> plan-agent --goal "아침 업무 요약 분석" --features "어제자 Jira 상태 변화 추출, Confluence 회의록 요약" --constraints "JiraExcelService 및 ConfluenceService 사용 필수"
+> plan-agent --goal "아침 업무 요약 분석" --features "어제자 Jira 상태 변화 추출, Confluence 회의록 요약" --constraints "JiraService 및 ConfluenceService 사용 필수"
 ```
 
 ## 결과물 확인

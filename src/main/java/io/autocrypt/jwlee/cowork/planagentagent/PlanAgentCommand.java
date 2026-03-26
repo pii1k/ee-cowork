@@ -22,7 +22,7 @@ public class PlanAgentCommand extends BaseAgentCommand {
     public String planAgent(
             @ShellOption(help = "에이전트의 목표 (예: '아침 업무 요약 생성')") String goal,
             @ShellOption(help = "주요 기능 (쉼표로 구분)", defaultValue = "") String features,
-            @ShellOption(help = "제약 사항 (예: 'JiraExcelService 사용')", defaultValue = "") String constraints,
+            @ShellOption(help = "제약 사항 (예: 'JiraService 사용')", defaultValue = "") String constraints,
             @ShellOption(value = {"-p", "--show-prompts"}, defaultValue = "false", help = "Log prompts sent to the LLM") boolean p,
             @ShellOption(value = {"-r", "--show-responses"}, defaultValue = "false", help = "Log LLM responses") boolean r) {
 

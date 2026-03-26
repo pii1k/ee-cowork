@@ -9,7 +9,7 @@ import com.embabel.common.ai.model.LlmOptions;
 import io.autocrypt.jwlee.cowork.core.dto.JiraIssueInfo;
 import io.autocrypt.jwlee.cowork.core.dto.MeetingInfo;
 import io.autocrypt.jwlee.cowork.core.tools.ConfluenceService;
-import io.autocrypt.jwlee.cowork.core.tools.JiraExcelService;
+import io.autocrypt.jwlee.cowork.core.tools.JiraService;
 import io.autocrypt.jwlee.cowork.core.hitl.ApplicationContextHolder;
 import io.autocrypt.jwlee.cowork.core.hitl.NotificationEvent;
 import io.autocrypt.jwlee.cowork.core.prompts.PromptProvider;
@@ -46,17 +46,17 @@ public class MorningBriefingAgent {
     @State
     public record SynthesisState(String targetDate, List<JiraChange> jiraChanges, List<MeetingSummary> meetingSummaries) implements Stage {}
 
-    private final JiraExcelService jiraExcelService;
+    private final JiraService jiraService;
     private final ConfluenceService confluenceService;
     private final PromptProvider promptProvider;
     private final CoreWorkspaceProvider workspaceProvider;
     private final CoreFileTools fileTools;
     private final CoworkLogger logger;
 
-    public MorningBriefingAgent(JiraExcelService jiraExcelService, ConfluenceService confluenceService, 
+    public MorningBriefingAgent(JiraService jiraService, ConfluenceService confluenceService, 
                                PromptProvider promptProvider, CoreWorkspaceProvider workspaceProvider, 
                                CoreFileTools fileTools, CoworkLogger logger) {
-        this.jiraExcelService = jiraExcelService;
+        this.jiraService = jiraService;
         this.confluenceService = confluenceService;
         this.promptProvider = promptProvider;
         this.workspaceProvider = workspaceProvider;
@@ -72,7 +72,7 @@ public class MorningBriefingAgent {
         
         logger.info("MorningBriefing", "데이터 수집 시작 (Target: " + targetDate + ")");
 
-        List<JiraIssueInfo> rawIssues = jiraExcelService.readIssues();
+        List<JiraIssueInfo> rawIssues = jiraService.readIssues(targetDate);
         List<JiraChange> jiraChanges = rawIssues.stream()
                 .limit(20)
                 .map(i -> new JiraChange(i.key(), i.summary(), "UNKNOWN", i.status(), i.assignee()))

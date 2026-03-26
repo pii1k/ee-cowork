@@ -20,7 +20,7 @@ agent:
 
 The following Spring beans must be injected via the constructor. Do **not** pass these into `@Action` method signatures.
 
-- `JiraExcelService` (REQUIRED: For extracting Jira state changes)
+- `JiraService` (REQUIRED: For extracting Jira state changes)
 - `ConfluenceService` (REQUIRED: For extracting Confluence meeting logs)
 - `PromptProvider` (REQUIRED: For resolving `.jinja` prompt templates)
 - `CoreWorkspaceProvider` (REQUIRED: For saving the final generated report)
@@ -87,7 +87,7 @@ State: SynthesisState {
 - **LLM Configuration**: None (Pure Java logic)
 - **Logic**: 
   1. Calculate yesterday's date using `LocalDate.now(ZoneId.of("Asia/Seoul")).minusDays(1)`.
-  2. Call `JiraExcelService` to fetch yesterday's issue changes and map them to `JiraChange` DTOs.
+  2. Call `JiraService` to fetch yesterday's issue changes and map them to `JiraChange` DTOs.
   3. Call `ConfluenceService` to fetch yesterday's meeting logs and map them to `MeetingNote` DTOs.
   4. Return `BriefingPreparationState`.
 
@@ -122,7 +122,7 @@ State: SynthesisState {
 1. **Strict Timezone Enforcement**: 
    - You MUST use `ZoneId.of("Asia/Seoul")` for all date calculations (e.g., determining "yesterday" and "today").
 2. **Hybrid Logic & No Beans in Actions**: 
-   - Do NOT pass `JiraExcelService` or `ConfluenceService` into the `@Action` method signatures. Use them from the class scope (injected via constructor) inside the `gatherYesterdayData` action.
+   - Do NOT pass `JiraService` or `ConfluenceService` into the `@Action` method signatures. Use them from the class scope (injected via constructor) inside the `gatherYesterdayData` action.
 3. **Type-Driven Generation**: 
    - Use Embabel's `.creating(DTO.class).fromPrompt(...)` for LLM calls. Do not manually instruct the LLM to output JSON in the Jinja template.
 4. **Gemini 2.5 Pitfall Protection**:

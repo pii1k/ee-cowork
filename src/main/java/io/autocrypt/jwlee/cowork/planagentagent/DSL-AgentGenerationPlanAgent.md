@@ -34,7 +34,7 @@ actions:
 
 implementation_guidelines:
   - "guides/DSL_GUIDE.md의 모든 규칙을 엄격히 준수하여 DSL을 생성할 것"
-  - "기존 코드베이스의 서비스(JiraExcelService, ConfluenceService 등)를 적극적으로 찾아 Dependencies에 포함할 것"
+  - "기존 코드베이스의 서비스(JiraService, ConfluenceService 등)를 적극적으로 찾아 Dependencies에 포함할 것"
   - "Action 정의 시 @AchievesGoal이 포함된 최종 액션이 반드시 하나 이상 존재하게 할 것"
   - "Timezone은 항상 'Asia/Seoul'로 고정하여 가이드에 명시할 것"
   - "생성된 DSL 파일은 'guides/DSLs/DSL-{agent-name}.md' 경로에 저장되도록 안내할 것"
