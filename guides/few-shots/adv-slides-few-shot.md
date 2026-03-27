@@ -209,4 +209,5 @@ Use indices to trigger elements out of document order.
 3. **NO Global Overrides:** Use the provided `<style>` block and inline styles ONLY.
 4. **NO Vertical Slides/Notes:** Forbidden. Focus only on high-impact horizontal content.
 5. **Layout Mastery:** Evaluate content and choose the most effective Grid configuration. Don't play it safe with single columns.
-6. **Fragments & Auto-Animate:** NEVER use fragments (`class="fragment"`) or Auto-Animate (`data-auto-animate`) unless the user explicitly asks for them.
+6. **Grid Exclusivity:** If a slide uses `<grid>`, ensure every piece of **body content** (excluding `::: title` and `::: source`) is inside a `<grid>` block to prevent overlapping.
+7. **Fragments & Auto-Animate:** NEVER use fragments (`class="fragment"`) or Auto-Animate (`data-auto-animate`) unless the user explicitly asks for them.
