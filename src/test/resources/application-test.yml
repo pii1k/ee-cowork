@@ -13,3 +13,7 @@ embabel:
       interactive:
         enabled: false # Embabel의 자체 JLine 터미널 차단
       redirect-log-to-file: false
+
+logging:
+  level:
+    root: DEBUG
