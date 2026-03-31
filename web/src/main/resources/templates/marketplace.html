@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="utf-8"/>
+    <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+    <title>Architect Ledger AI - Agent Marketplace</title>
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+    <script src="https://unpkg.com/alpinejs" defer></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .editorial-gradient {
+            background: linear-gradient(135deg, #0057cd 0%, #0d6efd 100%);
+        }
+    </style>
+</head>
+<body class="bg-[#f8f9fa] text-[#191c1d]">
+    <header class="bg-slate-50 flex justify-between items-center px-6 h-16 w-full border-b border-slate-200 fixed top-0 z-50">
+        <div class="flex items-center gap-8">
+            <span class="text-xl font-bold tracking-tighter text-blue-700">AutoCrypt Inhouse Agents</span>
+            <nav class="hidden md:flex space-x-6">
+                <a class="text-blue-700 border-b-2 border-blue-700 pb-1 font-sans tracking-tight" href="/">Agents</a>
+                <a class="text-slate-500 hover:text-blue-600 transition-colors font-sans tracking-tight" href="/tasks">Task History</a>
+            </nav>
+        </div>
+        <div class="flex items-center gap-4">
+            <span class="text-sm font-medium text-blue-700" th:text="${username}">Username</span>
+            <form th:action="@{/logout}" method="post">
+                <button type="submit" class="text-xs text-slate-500 hover:text-red-600">Logout</button>
+            </form>
+        </div>
+    </header>
+
+    <main class="pt-16 min-h-screen">
+        <div class="px-8 py-10 max-w-7xl mx-auto">
+            <header class="mb-12 border-l-4 border-[#0057cd] pl-6">
+                <h1 class="text-4xl font-extrabold tracking-tight text-[#191c1d] mb-2">에이전트 목록 (Agents)</h1>
+                <p class="text-[#424655] text-lg max-w-2xl leading-relaxed">업무에 필요한 맞춤형 AI 에이전트를 선택하여 실행하세요.</p>
+            </header>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
+                <!-- Dynamic Agent Cards -->
+                <div th:each="agent : ${agents}" class="group bg-white rounded-xl p-8 transition-all hover:bg-slate-50 relative overflow-hidden flex flex-col min-h-[320px] shadow-sm">
+                    <div class="flex items-start justify-between mb-8">
+                        <div class="p-3 bg-slate-100 rounded-lg text-[#0057cd]">
+                            <span class="material-symbols-outlined text-3xl">smart_toy</span>
+                        </div>
+                        <span th:text="${agent.role}" class="px-3 py-1 bg-blue-100 text-blue-800 text-[10px] font-bold uppercase tracking-wider rounded-full">Role</span>
+                    </div>
+                    <h3 th:text="${agent.name}" class="text-xl font-bold text-[#191c1d] mb-3 tracking-tight">Agent Name</h3>
+                    <p th:text="${agent.description}" class="text-[#424655] text-sm leading-relaxed mb-auto">Description</p>
+                    <div class="mt-8">
+                        <a th:href="@{'/agents/' + ${agent.id}}" class="editorial-gradient text-white w-full py-3 rounded-md font-bold text-sm tracking-tight flex items-center justify-center gap-2">
+                            Launch Agent
+                            <span class="material-symbols-outlined text-sm">rocket_launch</span>
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+</body>
+</html>

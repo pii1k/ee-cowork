@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="utf-8"/>
+    <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+    <title>AutoCrypt Inhouse Agents - [[${agent.name}]]</title>
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .primary-gradient { background: linear-gradient(135deg, #6366f1 0%, #a855f7 100%); }
+    </style>
+</head>
+<body class="bg-[#f8f9fa] text-[#191c1d] min-h-screen">
+    <header class="bg-slate-50 flex justify-between items-center px-6 h-16 w-full border-b border-slate-200 sticky top-0 z-50">
+        <div class="flex items-center gap-8">
+            <span class="text-xl font-bold tracking-tighter text-indigo-700">AutoCrypt Inhouse Agents</span>
+            <nav class="hidden md:flex space-x-6">
+                <a class="text-slate-500 hover:text-indigo-600 transition-colors" href="/">Agents</a>
+                <a class="text-slate-500 hover:text-indigo-600 transition-colors" href="/tasks">Task History</a>
+            </nav>
+        </div>
+        <div class="flex items-center gap-4">
+            <span class="text-sm font-medium text-indigo-700" th:text="${username}">Username</span>
+            <form th:action="@{/logout}" method="post">
+                <button type="submit" class="text-xs text-slate-500 hover:text-red-600">Logout</button>
+            </form>
+        </div>
+    </header>
+
+    <main class="max-w-7xl mx-auto p-8">
+        <header class="mb-10">
+            <h1 th:text="${agent.name}" class="text-4xl font-extrabold tracking-tight text-[#191c1d] mb-2">Agent Name</h1>
+            <p th:text="${agent.description}" class="text-[#424655] text-lg max-w-2xl">Description</p>
+        </header>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+            <section class="lg:col-span-6 space-y-6">
+                <div class="bg-white p-8 rounded-xl shadow-sm border border-slate-200">
+                    <h2 class="text-xl font-bold text-[#191c1d] mb-6">Slide Configuration</h2>
+                    <form th:attr="hx-post='/agents/' + ${agent.id} + '/run'" hx-encoding="multipart/form-data" hx-target="#task-status" hx-swap="innerHTML" class="space-y-6">
+                        
+                        <div>
+                            <label class="block text-sm font-semibold text-[#424655] mb-2">발표 제목 (Slide Title)</label>
+                            <input name="title" class="w-full bg-slate-50 border border-slate-200 rounded-md px-4 py-3 focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none" placeholder="예: 2026 보안 전략 발표자료" type="text" required/>
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-semibold text-[#424655] mb-2">작성 지침 (Instructions)</label>
+                            <textarea name="content" rows="5" class="w-full bg-slate-50 border border-slate-200 rounded-md px-4 py-3 focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none" placeholder="어떤 흐름으로 만들지 적어주세요. (예: 기술적인 내용 위주로 10슬라이드 내외로 구성해줘)" required></textarea>
+                        </div>
+
+                        <div class="border-t border-slate-200 pt-6">
+                            <h3 class="text-sm font-bold text-[#191c1d] mb-4 flex items-center gap-2">
+                                <span class="material-symbols-outlined text-slate-400">attach_file</span>
+                                참고 자료 업로드 (Multiple RAG)
+                            </h3>
+                            <input type="file" name="tech_ref_file" accept=".txt,.md,.pdf,.docx" multiple class="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100"/>
+                        </div>
+
+                        <div class="pt-4">
+                            <button class="w-full primary-gradient text-white font-bold py-4 rounded-md shadow-lg flex items-center justify-center space-x-3 hover:opacity-90 active:scale-[0.98] transition-all" type="submit">
+                                <span class="material-symbols-outlined">present_to_all</span>
+                                <span>발표자료 생성</span>
+                            </button>
+                        </div>
+                    </form>
+                </div>
+
+                <div id="task-status" class="bg-white p-6 rounded-xl border border-slate-200 min-h-[100px] flex items-center justify-center text-slate-400">
+                    작업 상태가 여기에 표시됩니다.
+                </div>
+            </section>
+
+            <section id="right-panel" class="lg:col-span-6 space-y-8">
+                <div class="bg-slate-50 p-8 rounded-xl border border-slate-100">
+                    <h3 class="text-lg font-bold text-[#191c1d] mb-4">Reveal.js 가이드</h3>
+                    <ul class="space-y-4 text-sm text-[#424655]">
+                        <li class="flex gap-3">
+                            <span class="material-symbols-outlined text-indigo-500">check_circle</span>
+                            <span>업로드된 여러 문서를 분석하여 논리적인 슬라이드 구조를 잡습니다.</span>
+                        </li>
+                        <li class="flex gap-3">
+                            <span class="material-symbols-outlined text-indigo-500">check_circle</span>
+                            <span>완료 후 <b>Online Viewer</b>를 통해 즉시 프레젠테이션이 가능합니다.</span>
+                        </li>
+                        <li class="flex gap-3">
+                            <span class="material-symbols-outlined text-indigo-500">check_circle</span>
+                            <span>Reveal.md 규격에 맞는 마크다운 파일로 다운로드 받을 수 있습니다.</span>
+                        </li>
+                    </ul>
+                </div>
+                
+                <div class="relative min-h-[300px] border-2 border-dashed border-slate-200 rounded-2xl flex flex-col items-center justify-center bg-slate-50/30">
+                     <span class="material-symbols-outlined text-4xl text-slate-300 mb-4">slideshow</span>
+                     <p class="text-slate-400 text-sm">생성이 완료되면 온라인 뷰어 링크가 제공됩니다.</p>
+                </div>
+            </section>
+        </div>
+    </main>
+</body>
+</html>

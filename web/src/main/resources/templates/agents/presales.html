@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="utf-8"/>
+    <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+    <title>AutoCrypt Inhouse Agents - [[${agent.name}]]</title>
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .primary-gradient { background: linear-gradient(135deg, #0057cd 0%, #0d6efd 100%); }
+    </style>
+</head>
+<body class="bg-[#f8f9fa] text-[#191c1d] min-h-screen">
+    <header class="bg-slate-50 flex justify-between items-center px-6 h-16 w-full border-b border-slate-200 sticky top-0 z-50">
+        <div class="flex items-center gap-8">
+            <span class="text-xl font-bold tracking-tighter text-blue-700">AutoCrypt Inhouse Agents</span>
+            <nav class="hidden md:flex space-x-6">
+                <a class="text-slate-500 hover:text-blue-600 transition-colors" href="/">Agents</a>
+                <a class="text-slate-500 hover:text-blue-600 transition-colors" href="/tasks">Task History</a>
+            </nav>
+        </div>
+        <div class="flex items-center gap-4">
+            <span class="text-sm font-medium text-blue-700" th:text="${username}">Username</span>
+            <form th:action="@{/logout}" method="post">
+                <button type="submit" class="text-xs text-slate-500 hover:text-red-600">Logout</button>
+            </form>
+        </div>
+    </header>
+
+    <main class="max-w-7xl mx-auto p-8">
+        <header class="mb-10">
+            <h1 th:text="${agent.name}" class="text-4xl font-extrabold tracking-tight text-[#191c1d] mb-2">Agent Name</h1>
+            <p th:text="${agent.description}" class="text-[#424655] text-lg max-w-2xl">Description</p>
+        </header>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+            <section class="lg:col-span-6 space-y-6">
+                <div class="bg-white p-8 rounded-xl shadow-sm border border-slate-200">
+                    <h2 class="text-xl font-bold text-[#191c1d] mb-6">Agent Configuration</h2>
+                    <!-- HTMX Multipart Form -->
+                    <form th:attr="hx-post='/agents/' + ${agent.id} + '/run'" hx-encoding="multipart/form-data" hx-target="#task-status" hx-swap="innerHTML" class="space-y-6">
+                        
+                        <div>
+                            <label class="block text-sm font-semibold text-[#424655] mb-2">리포트 제목 (Title)</label>
+                            <input name="title" class="w-full bg-slate-50 border border-slate-200 rounded-md px-4 py-3 focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none" placeholder="예: 한국은행 2026 차세대 프로젝트 갭분석" type="text" required/>
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-semibold text-[#424655] mb-2">고객 요구사항 요약 (Customer Context)</label>
+                            <textarea name="content" rows="4" class="w-full bg-slate-50 border border-slate-200 rounded-md px-4 py-3 focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none" placeholder="고객의 주요 요구사항이나 이슈, 질의 내용을 입력하세요..." required></textarea>
+                        </div>
+
+                        <div class="border-t border-slate-200 pt-6">
+                            <h3 class="text-sm font-bold text-[#191c1d] mb-4 flex items-center gap-2">
+                                <span class="material-symbols-outlined text-slate-400">upload_file</span>
+                                RAG 지식 업로드 (선택)
+                            </h3>
+                            
+                            <div class="space-y-4">
+                                <div>
+                                    <label class="block text-xs font-semibold text-slate-500 mb-1">기술 표준/일반 문서 (Tech Reference)</label>
+                                    <input type="file" name="tech_ref_file" accept=".txt,.md,.pdf,.docx" multiple class="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"/>
+                                    <p class="text-[10px] text-slate-400 mt-1">여러 파일을 선택할 수 있습니다. 1단계(CRS 생성)를 수행합니다.</p>
+                                </div>
+                                
+                                <div>
+                                    <label class="block text-xs font-semibold text-slate-500 mb-1">자사 솔루션 스펙 (Product Spec)</label>
+                                    <input type="file" name="product_spec_file" accept=".txt,.md,.pdf,.docx" multiple class="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-green-50 file:text-green-700 hover:file:bg-green-100"/>
+                                    <p class="text-[10px] text-slate-400 mt-1">여러 파일을 선택할 수 있습니다. 2단계(갭 분석)를 수행합니다.</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="pt-4">
+                            <button class="w-full primary-gradient text-white font-bold py-4 rounded-md shadow-lg flex items-center justify-center space-x-3 hover:opacity-90 active:scale-[0.98] transition-all" type="submit">
+                                <span class="material-symbols-outlined">analytics</span>
+                                <span>갭 분석 실행</span>
+                            </button>
+                        </div>
+                    </form>
+                </div>
+
+                <div id="task-status" class="bg-white p-6 rounded-xl border border-slate-200 min-h-[100px] flex items-center justify-center text-slate-400">
+                    작업 상태가 여기에 표시됩니다.
+                </div>
+            </section>
+
+            <section id="right-panel" class="lg:col-span-6 space-y-8">
+                <div class="bg-slate-50 p-8 rounded-xl">
+                    <h3 class="text-lg font-bold text-[#191c1d] mb-4">작업 프로세스 안내</h3>
+                    <div class="space-y-6">
+                        <div class="flex items-start space-x-4">
+                            <div class="w-8 h-8 rounded-full bg-white border border-slate-200 flex items-center justify-center shrink-0">
+                                <span class="text-xs font-bold text-blue-600">1</span>
+                            </div>
+                            <div>
+                                <p class="text-sm font-bold mb-1">요구사항 파악 및 CRS 생성</p>
+                                <p class="text-xs text-[#424655] leading-relaxed">입력된 요구사항과 업로드된 '기술 표준 문서'를 바탕으로 RAG 검색을 수행하여 정제된 CRS(요구사항 명세)를 초안 작성합니다.</p>
+                            </div>
+                        </div>
+                        <div class="flex items-start space-x-4">
+                            <div class="w-8 h-8 rounded-full bg-white border border-slate-200 flex items-center justify-center shrink-0">
+                                <span class="text-xs font-bold text-green-600">2</span>
+                            </div>
+                            <div>
+                                <p class="text-sm font-bold mb-1">제품 갭(Gap) 분석</p>
+                                <p class="text-xs text-[#424655] leading-relaxed">작성된 CRS와 업로드된 '자사 솔루션 스펙'을 대조하여, 수용 가능한 기능과 커스터마이징이 필요한 간극(Gap)을 리포팅합니다.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="relative min-h-[300px] border-2 border-dashed border-slate-200 rounded-2xl flex flex-col items-center justify-center bg-slate-50/30">
+                     <span class="material-symbols-outlined text-4xl text-slate-300 mb-4">analytics</span>
+                     <p class="text-slate-400 text-sm">분석이 완료되면 여기에 결과가 표시됩니다.</p>
+                </div>
+            </section>
+        </div>
+    </main>
+</body>
+</html>

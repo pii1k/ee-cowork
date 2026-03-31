@@ -1,0 +1,15 @@
+embabel:
+  models:
+    default-llm: gemini-2.5-flash
+    default-embedding-model: gemini-embedding-001
+    llms:
+      simple: gemini-2.5-flash-lite
+      normal: gemini-2.5-flash
+      performant: gemini-3-flash-preview
+  agent:
+    platform:
+      llm-operations:
+        timeout-seconds: 300
+      models:
+        googlegenai:
+          api-key: ${GEMINI_API_KEY}

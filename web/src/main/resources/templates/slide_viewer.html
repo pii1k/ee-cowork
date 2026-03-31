@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="utf-8"/>
+    <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+    <title>Reveal.js Viewer - [[${task.agentName}]]</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js/dist/reset.css"/>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js/dist/reveal.css"/>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js/dist/theme/black.css" id="theme"/>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js/plugin/highlight/monokai.css"/>
+    <style>
+        .reveal .slides { text-align: left; }
+        .reveal h1, .reveal h2, .reveal h3 { text-transform: none; }
+        .exit-btn {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 1000;
+            background: rgba(255,255,255,0.1);
+            color: white;
+            border: none;
+            padding: 8px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 13px;
+            text-decoration: none;
+            font-family: sans-serif;
+            opacity: 0.5;
+            transition: opacity 0.3s;
+        }
+        .exit-btn:hover { opacity: 1; background: rgba(255,255,255,0.2); }
+    </style>
+</head>
+<body>
+    <a href="javascript:window.close();" class="exit-btn">✕ Close Tab</a>
+
+    <div class="reveal">
+        <div class="slides">
+            <section id="markdown-section" data-markdown data-separator="^---" data-separator-vertical="^--">
+                <script type="text/template" id="markdown-source" th:utext="${task.result}"></script>
+            </section>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/reveal.js/dist/reveal.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/reveal.js/plugin/markdown/markdown.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/reveal.js/plugin/highlight/highlight.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/reveal.js/plugin/notes/notes.js"></script>
+    <script>
+        (function() {
+            const scriptTag = document.getElementById('markdown-source');
+            let text = scriptTag.textContent.trim();
+            
+            // Clean markdown backticks
+            text = text.replace(/^```[a-zA-Z]*\s*\n/g, '').replace(/\n\s*```$/g, '').trim();
+            
+            // Reveal.js requires the markdown to be inside the script tag correctly
+            scriptTag.textContent = text;
+
+            Reveal.initialize({
+                controls: true,
+                progress: true,
+                center: true,
+                hash: true,
+                mouseWheel: true,
+                plugins: [ RevealMarkdown, RevealHighlight, RevealNotes ],
+                markdown: {
+                    attributes: true
+                }
+            });        })();
+    </script>
+</body>
+</html>
