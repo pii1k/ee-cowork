@@ -195,21 +195,6 @@ public class MorningBriefingAgent {
         
         logger.info("MorningBriefing", "브리핑 생성 및 알림 완료");
 
-        AgentProcess process = ctx.getAgentProcess();
-        
-        logger.info("MorningBriefing", "[Process Cost]\n" + process.costInfoString(false));
-
-        var history = process.getHistory();
-        String historyLog = String.format("Action history (%d actions):\n%s",
-                history.size(),
-                IntStream.range(0, history.size())
-                        .mapToObj(i -> String.format("%d. %s (%.1fs)", 
-                                i + 1, 
-                                history.get(i).getActionName(), 
-                                history.get(i).getRunningTime().toMillis() / 1000.0))
-                        .collect(Collectors.joining("\n")));
-        logger.info("MorningBriefing", "[Process History]\n" + historyLog);
-
         return new MorningBriefingReport(markdown);
     }
 }

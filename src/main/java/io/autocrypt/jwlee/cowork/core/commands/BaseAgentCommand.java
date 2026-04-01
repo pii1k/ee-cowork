@@ -6,6 +6,7 @@ import com.embabel.agent.core.AgentProcess;
 import com.embabel.agent.core.ProcessOptions;
 import com.embabel.agent.core.Verbosity;
 import io.autocrypt.jwlee.cowork.core.tools.CoworkLogger;
+import org.springframework.beans.factory.annotation.Autowired;
 
 import java.util.Collections;
 import java.util.concurrent.ExecutionException;
@@ -18,6 +19,10 @@ import java.util.stream.IntStream;
 public abstract class BaseAgentCommand {
 
     protected final AgentPlatform agentPlatform;
+    
+    @Autowired
+    protected CoworkLogger logger; // Automatically injected into subclasses
+    
     private AgentProcess lastProcess; // 마지막 실행 프로세스 보관
 
     protected BaseAgentCommand(AgentPlatform agentPlatform) {
@@ -32,7 +37,7 @@ public abstract class BaseAgentCommand {
 
     /**
      * Helper to invoke an agent with consistent process handling and options.
-     * Replaces invokeAgentProcess to maintain backward compatibility.
+     * Automatically reports metrics before returning.
      */
     protected <T> T invokeAgent(Class<T> resultType, ProcessOptions options, Object... requests) 
             throws ExecutionException, InterruptedException {
@@ -60,6 +65,12 @@ public abstract class BaseAgentCommand {
         while (!lastProcess.getFinished()) {
             Thread.sleep(500);
         }
+
+        // --- 📊 Metrics 리포팅 자동화 ---
+        if (logger != null) {
+            reportOverallMetrics(logger, resultType.getSimpleName());
+        }
+
         return lastProcess.resultOfType(resultType);
     }
 

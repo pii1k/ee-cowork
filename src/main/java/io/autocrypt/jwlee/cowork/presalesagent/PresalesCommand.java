@@ -4,7 +4,6 @@ import com.embabel.agent.api.common.Ai;
 import com.embabel.agent.core.AgentPlatform;
 import io.autocrypt.jwlee.cowork.core.commands.BaseAgentCommand;
 import io.autocrypt.jwlee.cowork.core.tools.CoreWorkspaceProvider;
-import io.autocrypt.jwlee.cowork.core.tools.CoworkLogger;
 import io.autocrypt.jwlee.cowork.core.tools.LocalRagTools;
 import org.springframework.shell.standard.ShellComponent;
 import org.springframework.shell.standard.ShellMethod;
@@ -23,18 +22,16 @@ public class PresalesCommand extends BaseAgentCommand {
     private final LocalRagTools ragTools;
     private final Ai ai;
     private final CoreWorkspaceProvider workspaceProvider;
-    private final CoworkLogger coworkLogger;
     private static final String AGENT_NAME = "presales";
 
     public PresalesCommand(PresalesAgent agent, PresalesWorkspace workspace, LocalRagTools ragTools, 
-                          Ai ai, AgentPlatform agentPlatform, CoreWorkspaceProvider workspaceProvider, CoworkLogger coworkLogger) {
+                          Ai ai, AgentPlatform agentPlatform, CoreWorkspaceProvider workspaceProvider) {
         super(agentPlatform);
         this.agent = agent;
         this.workspace = workspace;
         this.ragTools = ragTools;
         this.ai = ai;
         this.workspaceProvider = workspaceProvider;
-        this.coworkLogger = coworkLogger;
     }
 
     @ShellMethod(value = "Ingest documents into presales RAG indices.", key = "presales-ingest")
@@ -75,7 +72,7 @@ public class PresalesCommand extends BaseAgentCommand {
                 getOptions(p, r),
                 new PresalesAgent.RequirementRequest(sourceContent, techRagPath)
         );
-        reportOverallMetrics(coworkLogger, "Phase1-Refine");
+        // reportOverallMetrics is now automated in BaseAgentCommand
 
         String crs = crsResult.content();
         workspace.saveCrs(wsPath, crs);
@@ -121,7 +118,7 @@ public class PresalesCommand extends BaseAgentCommand {
                 getOptions(p, r),
                 new PresalesAgent.GapAnalysisRequest(crs, language, productRagPath)
         );
-        reportOverallMetrics(coworkLogger, "Phase2-GapAnalysis");
+        // reportOverallMetrics is now automated in BaseAgentCommand
 
         workspace.saveFinalReport(wsPath, result.finalReport());
 

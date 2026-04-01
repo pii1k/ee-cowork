@@ -5,8 +5,12 @@ import com.embabel.agent.api.annotation.EmbabelComponent;
 import com.embabel.agent.api.annotation.LlmTool;
 import com.embabel.agent.api.common.ActionContext;
 import com.embabel.agent.api.common.Ai;
+import com.embabel.agent.api.tool.Subagent;
+import com.embabel.agent.core.AgentPlatform;
 import com.embabel.agent.prompt.persona.RoleGoalBackstory;
 import com.embabel.agent.rag.tools.TryHyDE;
+import io.autocrypt.jwlee.cowork.architectureagent.ArchitectureAgent;
+import io.autocrypt.jwlee.cowork.architectureagent.domain.ArchitectureRequest;
 import io.autocrypt.jwlee.cowork.core.workaround.JsonSafeToolishRag;
 import com.embabel.chat.Conversation;
 import com.embabel.chat.Message;
@@ -30,7 +34,8 @@ public class ChatbotAgent {
     private final BashTool bashTool;
     private final LocalRagTools localRagTools;
 
-    public ChatbotAgent(RoleGoalBackstory mainOrchestratorPersona, 
+    public ChatbotAgent(AgentPlatform agentPlatform,
+                        RoleGoalBackstory mainOrchestratorPersona, 
                         FileReadTool readTool,
                         FileWriteTool writeTool,
                         FileEditTool editTool,
@@ -72,10 +77,7 @@ public class ChatbotAgent {
                 ? messages.subList(messages.size() - 10, messages.size()) 
                 : messages;
 
-        // Use managed in-memory instance from LocalRagTools
         var searchOps = localRagTools.getOrOpenMemoryInstance("chatbot");
-        
-        // Match name 'knowledge' as instructed in application.yml persona
         var toolishRag = new JsonSafeToolishRag("knowledge", "General knowledge base containing uploaded documents and URLs", searchOps)
                 .withHint(TryHyDE.usingConversationContext());
         
@@ -88,6 +90,7 @@ public class ChatbotAgent {
                 .withToolObject(grepTool)
                 .withToolObject(bashTool)
                 .withToolObject(new ChatbotRagWrapper())
+                .withTool(Subagent.ofClass(ArchitectureAgent.class).consuming(ArchitectureRequest.class))
                 .withReference(toolishRag)
                 .respond(contextMessages);
 
