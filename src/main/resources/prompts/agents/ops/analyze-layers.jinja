@@ -1,0 +1,15 @@
+Analyze the following infrastructure and operational evidence gathered from a repository.
+Your task is to categorize the deployment model, assess reliability (HA), and evaluate security and observability.
+
+# TECHNICAL STACK CONTEXT
+{{ techStack }}
+
+# INFRASTRUCTURE EVIDENCE
+{{ evidence }}
+
+Based on the evidence, extract:
+1. **Deployment Type**: Is it CLOUD_NATIVE (K8s, Serverless), APPLIANCE (systemd, fixed OS), ON_PREM_VM, or HYBRID?
+2. **Reliability**: Is High Availability (HA) implemented? Look for session sharing, DB redundancy, and load balancing.
+3. **Security & Observability**: Are secrets managed securely? Is there HSM integration? What monitoring tools are used?
+
+Return the results in the structured format provided.
