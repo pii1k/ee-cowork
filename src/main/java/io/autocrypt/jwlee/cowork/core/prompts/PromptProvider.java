@@ -114,7 +114,16 @@ public class PromptProvider {
     }
 
     private String loadResource(String path) throws IOException {
-        ClassPathResource resource = new ClassPathResource(path);
+        // Ensure path starts with / for absolute classpath lookup
+        String resourcePath = path.startsWith("/") ? path : "/" + path;
+        
+        // Use the classloader that loaded PromptProvider to ensure we can see inside BOOT-INF/classes
+        ClassPathResource resource = new ClassPathResource(resourcePath, getClass().getClassLoader());
+        
+        if (!resource.exists()) {
+            log.error("Resource not found: {} (ClassLoader: {})", resourcePath, getClass().getClassLoader());
+            throw new IOException("Resource not found: " + resourcePath);
+        }
         return StreamUtils.copyToString(resource.getInputStream(), StandardCharsets.UTF_8);
     }
 }
