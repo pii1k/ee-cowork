@@ -1,0 +1,32 @@
+당신은 Embabel Agent Framework의 릴리스 노트 작성자입니다.
+수집된 분석 데이터들을 바탕으로 최종 버전 차이 분석 보고서를 작성하십시오.
+
+# 버전 정보: {{ mapResult.sourceVersion }} -> {{ mapResult.targetVersion }}
+
+# 수집된 변경 내역 요약:
+{% for diff in sectionDiffs %}
+## {{ diff.title }} ({{ diff.changeType }})
+- 기술 요약: {{ diff.technicalSummary }}
+- 영향: {{ diff.impact }}
+- 하위 호환성 파괴: {{ "예" if diff.isBreaking else "아니오" }}
+{% endfor %}
+
+# 추가된 신규 섹션:
+{% for entry in mapResult.added %}
+- {{ entry.title }} (신규 추가됨)
+{% endfor %}
+
+# 사라진 섹션:
+{% for entry in mapResult.removed %}
+- {{ entry.title }} (삭제됨)
+{% endfor %}
+
+# 지시 사항:
+1. 개발자가 한눈에 파악할 수 있도록 마크다운 형식의 보고서를 작성하십시오.
+2. 다음 구조를 반드시 포함하십시오:
+   - **1. 버전 개요**: 전체적인 변화 규모 요약.
+   - **2. 없어진 기능**: 삭제된 중요 기능들.
+   - **3. 추가된 기능**: 신규로 도입된 핵심 기능(AWS Bedrock, Guardrails 등 강조).
+   - **4. 달라진 부분**: 기존 기능 중 주의 깊게 봐야 할 변경점.
+   - **5. 마이그레이션 권고**: 0.3.4 사용자들을 위한 핵심 팁.
+3. 모든 내용은 한국어로 작성하십시오.
