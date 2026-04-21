@@ -25,7 +25,7 @@ AI is not used for:
 - inventory construction
 - candidate collection
 - file existence checks
-- preflight validation
+- input validation
 
 ## Command
 
@@ -44,7 +44,6 @@ Main options:
 - `--license-map`: Path to `license_map.json`
 - `--format`: Output preference. Current implementation writes all artifacts regardless of this value
 - `--notes`: Analyst override notes
-- `--preflight-only`: Run deterministic validation only, without invoking the agent
 - `-p`, `--show-prompts`: Show prompts
 - `-r`, `--show-responses`: Show LLM responses
 
@@ -81,25 +80,29 @@ cve-report \
   --notes $'patched:CVE-2026-28389\nfixed:CVE-2026-28390\nunused:CVE-2024-39705\naffected:GHSA-hcpj-qp55-gfph'
 ```
 
-Run preflight checks only:
-
-```bash
-cve-report \
-  --sbom sbom/temp/merged_sbom.json \
-  --product ACV2X-EE \
-  --version 5.3.49 \
-  --build-dir /workdir/workspace/securityplatform/build/x86-64/ydt3957/Debug \
-  --license-map sbom/license_map.json \
-  --preflight-only
-```
-
-Run standalone preflight without Spring Boot or LLM provider initialization:
+Run deterministic Stage 1 and Stage 2 only without Spring Boot or LLM provider initialization:
 
 ```bash
 ./mvnw -q -DskipTests compile
 ./mvnw -q -DskipTests org.codehaus.mojo:exec-maven-plugin:3.5.0:java \
-  -Dexec.mainClass=io.autocrypt.eeTeam.cowork.cvereportagent.CveReportPreflightMain \
-  -Dexec.args="--sbom sbom/temp/merged_sbom.json --product ACV2X-EE --version 5.3.49 --build-dir /workdir/workspace/securityplatform/build/x86-64/ydt3957/Debug --license-map sbom/license_map.json"
+  -Dexec.mainClass=io.autocrypt.eeTeam.cowork.cvereportagent.CveReportDeterministicMain \
+  -Dexec.args="--sbom sbom/temp/merged_sbom.json --product ACV2X-EE --version 5.3.49 --build-dir /workdir/workspace/securityplatform/build/x86-64/ydt3957/Debug --license-map sbom/license_map.json --until-stage 2"
+```
+
+Show available stages and capabilities before running:
+
+```bash
+./mvnw -q -DskipTests org.codehaus.mojo:exec-maven-plugin:3.5.0:java \
+  -Dexec.mainClass=io.autocrypt.eeTeam.cowork.cvereportagent.CveReportDeterministicMain \
+  -Dexec.args="--list-stages"
+```
+
+Run Stage 1 only and stop after `inventory.json` generation:
+
+```bash
+./mvnw -q -DskipTests org.codehaus.mojo:exec-maven-plugin:3.5.0:java \
+  -Dexec.mainClass=io.autocrypt.eeTeam.cowork.cvereportagent.CveReportDeterministicMain \
+  -Dexec.args="--sbom sbom/temp/merged_sbom.json --product ACV2X-EE --version 5.3.49 --build-dir /workdir/workspace/securityplatform/build/x86-64/ydt3957/Debug --license-map sbom/license_map.json --until-stage 1"
 ```
 
 Multiple CVEs can be written on one line with commas:
@@ -160,6 +163,7 @@ Generated files:
 
 - merged candidate list from SBOM and supplemental grype CycloneDX files
 - preserves source provenance in `matchedBy`
+- can now be generated standalone together with `inventory.json` via `CveReportDeterministicMain`
 
 `cve_assessment.json`
 
@@ -183,8 +187,7 @@ Generated files:
 Important note:
 
 - Current implementation now uses AI only in Stage 3 and Stage 4.
-- `--preflight-only` is recommended before the first real run in a new environment.
-- If Spring Boot startup is blocked by missing API keys, use `CveReportPreflightMain` instead of the Shell command.
+- Input validation runs before deterministic processing and before full agent execution.
 
 Implemented today:
 

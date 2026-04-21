@@ -34,7 +34,6 @@ public class CveReportCommand extends BaseAgentCommand {
             @ShellOption(help = "Path to license map.", defaultValue = "sbom/license_map.json") String licenseMap,
             @ShellOption(help = "Output format preference.", defaultValue = "all") String format,
             @ShellOption(help = "Optional analyst notes. Example: 'patched:CVE-2024-0001'", defaultValue = "") String notes,
-            @ShellOption(help = "Run deterministic input validation only, without invoking the agent.", defaultValue = "false") boolean preflightOnly,
             @ShellOption(value = {"-p", "--show-prompts"}, help = "Show LLM prompts.", defaultValue = "false") boolean showPrompts,
             @ShellOption(value = {"-r", "--show-responses"}, help = "Show LLM responses.", defaultValue = "false") boolean showResponses
     ) throws ExecutionException, InterruptedException, IOException {
@@ -50,13 +49,10 @@ public class CveReportCommand extends BaseAgentCommand {
                 notes
         );
 
-        CveReportPreflightSupport.PreflightResult preflight =
-                CveReportPreflightSupport.runPreflightChecks(request, objectMapper);
-        if (!preflight.ok()) {
-            return preflight.render();
-        }
-        if (preflightOnly) {
-            return preflight.render();
+        CveReportValidationSupport.ValidationResult validation =
+                CveReportValidationSupport.validateInputs(request, objectMapper);
+        if (!validation.ok()) {
+            return validation.render();
         }
 
         CveReportResult result = invokeAgent(

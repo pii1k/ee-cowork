@@ -12,17 +12,17 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Deterministic preflight validation that can run without Spring Boot or LLM providers.
+ * Deterministic input validation that can run without Spring Boot or LLM providers.
  */
-public final class CveReportPreflightSupport {
+public final class CveReportValidationSupport {
 
-    private CveReportPreflightSupport() {}
+    private CveReportValidationSupport() {}
 
-    public record PreflightResult(boolean ok, List<String> checks, List<String> warnings, List<String> errors) {
+    public record ValidationResult(boolean ok, List<String> checks, List<String> warnings, List<String> errors) {
         public String render() {
             StringBuilder sb = new StringBuilder();
-            sb.append("Preflight Result\n");
-            sb.append("================\n");
+            sb.append("Validation Result\n");
+            sb.append("=================\n");
             sb.append("Status: ").append(ok ? "OK" : "FAILED").append("\n\n");
 
             if (!checks.isEmpty()) {
@@ -52,7 +52,7 @@ public final class CveReportPreflightSupport {
         }
     }
 
-    public static PreflightResult runPreflightChecks(CveReportRequest request, ObjectMapper objectMapper) throws IOException {
+    public static ValidationResult validateInputs(CveReportRequest request, ObjectMapper objectMapper) throws IOException {
         List<String> checks = new ArrayList<>();
         List<String> warnings = new ArrayList<>();
         List<String> errors = new ArrayList<>();
@@ -96,8 +96,8 @@ public final class CveReportPreflightSupport {
             checks.add("Analyst notes provided.");
         }
 
-        checks.add("This preflight path does not initialize Spring Boot or any external LLM provider.");
-        return new PreflightResult(errors.isEmpty(), checks, warnings, errors);
+        checks.add("This validation path does not initialize Spring Boot or any external LLM provider.");
+        return new ValidationResult(errors.isEmpty(), checks, warnings, errors);
     }
 
     private static void validateSbomJson(
