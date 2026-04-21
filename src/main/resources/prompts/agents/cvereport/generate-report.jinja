@@ -1,0 +1,30 @@
+# CVE Assessment Report
+
+- Product: {{ productName }}
+- Version: {{ productVersion }}
+- Review Date: {{ assessmentDate }}
+
+## Summary
+
+Write a short Korean summary for the assessment results below.
+Focus on:
+- overall risk posture
+- how many items are affected vs under investigation
+- why some items remain uncertain
+
+## Findings
+
+Create a concise Markdown table with these columns:
+`Component | CVE | Status | Rationale | Owner | Review Date`
+
+Use the assessment data below and generate human-readable rationale sentences.
+
+Assessments:
+{{ assessments | tojson }}
+
+Writing rules:
+- Keep rationale grounded in the provided data.
+- For `not_affected_not_present`, use wording like "The component is not observed in the final product build."
+- For `not_affected_patched`, use wording like "Although the version is within the affected range, patch evidence indicates the vulnerability has been addressed."
+- For `not_affected_unused_code_path`, use wording like "The vulnerable code path is not used based on current analysis."
+- Do not invent remediation claims.

@@ -9,7 +9,7 @@ import org.springframework.scheduling.annotation.EnableAsync;
 @SpringBootApplication
 @EnableAsync
 @ComponentScan(
-		basePackages = "io.autocrypt.jwlee.cowork",
+		basePackages = {"io.autocrypt.jwlee.cowork", "io.autocrypt.eeTeam.cowork"},
 		excludeFilters = {
                 @ComponentScan.Filter(type = FilterType.REGEX, pattern = "io\\.autocrypt\\.jwlee\\.cowork\\.agents\\.sample\\..*"),
                 @ComponentScan.Filter(type = FilterType.REGEX, pattern = "io\\.autocrypt\\.jwlee\\.cowork\\.agents\\.scaffold\\..*")
