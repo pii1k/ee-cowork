@@ -102,69 +102,174 @@ public final class CveReportDeterministicSupport {
             String inventoryPath,
             String candidatePath,
             int executedUntilStage,
+            String productName,
+            String productVersion,
+            String sbomPath,
+            int sbomComponentCount,
+            int sbomVulnerabilityCount,
+            String licenseMapPath,
+            int licenseMapThirdPartyCount,
+            int licenseMapCoreLibraryCount,
+            String buildDirectory,
+            boolean hasAnalystNotes,
             int observedComponentCount,
             int candidateCount,
+            List<String> lookupSources,
+            boolean hasLocalExternalAdvisoryFiles,
             List<String> checks,
             List<String> warnings,
             List<String> errors
     ) {
         public String render() {
             StringBuilder sb = new StringBuilder();
-            sb.append("Deterministic Stage 1+2 Result\n");
+            sb.append("Deterministic ").append(stageRangeLabel(executedUntilStage)).append(" Result\n");
             sb.append("==============================\n");
-            sb.append("Status: ").append(ok ? "OK" : "FAILED").append("\n\n");
-            sb.append("Execution Summary\n");
-            sb.append("- Executed through stage: ").append(executedUntilStage).append("\n");
-            sb.append("- Stage 1 (Inventory): ").append(executedUntilStage >= 1 ? "done" : "skipped").append("\n");
-            sb.append("- Stage 2 (CVE candidate collection): ").append(executedUntilStage >= 2 ? "done" : "skipped").append("\n");
-            sb.append("- Stage 3 (Applicability): not run in this standalone deterministic path\n");
-            sb.append("- Stage 4 (Report generation): not run in this standalone deterministic path\n\n");
+            sb.append("Total Status: ").append(ok ? "Success" : "Failed").append("\n\n");
 
-            if (!checks.isEmpty()) {
-                sb.append("Checks\n");
-                for (String check : checks) {
-                    sb.append("- ").append(check).append("\n");
-                }
+            infoBanner(sb, "Stage 0", "Validate Inputs", true);
+            infoLine(sb, "Confirm deterministic validation inputs");
+            infoLine(sb, "Product name: " + nullToEmpty(productName));
+            infoLine(sb, "Product version: " + nullToEmpty(productVersion));
+            infoLine(sb, "SBOM path: " + nullToEmpty(sbomPath));
+            infoLine(sb, "license_map path: " + nullToEmpty(licenseMapPath));
+            infoLine(sb, "Build directory: " + nullToEmpty(buildDirectory));
+            infoLine(sb, "Analyst notes: " + (hasAnalystNotes ? "provided" : ""));
+            infoLine(sb, "Validation path: deterministic only, no Spring Boot or external LLM provider initialization");
+            infoLine(sb, "SBOM components count: " + sbomComponentCount);
+            infoLine(sb, "SBOM vulnerabilities count: " + sbomVulnerabilityCount);
+            infoLine(sb, "license_map third_party entries: " + licenseMapThirdPartyCount);
+            infoLine(sb, "license_map core_libraries entries: " + licenseMapCoreLibraryCount);
+            infoBanner(sb, "Stage 0", "Validate Inputs", false);
+            sb.append("\n");
+
+            if (executedUntilStage >= 1) {
+                infoBanner(sb, "Stage 1", "Build Inventory", true);
+                infoLine(sb, "Build observed inventory from the given SBOM and license_map");
+                infoLine(sb, "Observed components: " + observedComponentCount);
+                infoLine(sb, "Inventory path: " + inventoryPath);
+                infoBanner(sb, "Stage 1", "Build Inventory", false);
                 sb.append("\n");
             }
 
+            if (executedUntilStage >= 2) {
+                infoBanner(sb, "Stage 2", "Collect CVE Candidates", true);
+                infoLine(sb, "Collect CVE candidates from SBOM vulnerabilities");
+                infoLine(sb, "Merge supplemental grype data when present");
+                infoLine(sb, "Query external advisory sources");
+                infoLine(sb, "Candidate count: " + candidateCount);
+                infoLine(sb, "External advisory sources: " + (lookupSources.isEmpty() ? "" : String.join(", ", lookupSources)));
+                infoLine(sb, "Local external advisory files: " + (hasLocalExternalAdvisoryFiles ? "present" : ""));
+                infoLine(sb, "Candidates path: " + candidatePath);
+                infoBanner(sb, "Stage 2", "Collect CVE Candidates", false);
+                sb.append("\n");
+            } else {
+                skippedBanner(sb, "Stage 2", "Collect CVE Candidates");
+                sb.append("\n");
+            }
+
+            if (executedUntilStage >= 3) {
+                infoBanner(sb, "Stage 3", "Assess Applicability", true);
+                infoLine(sb, "Assess applicability");
+                infoLine(sb, "Status: done");
+                infoBanner(sb, "Stage 3", "Assess Applicability", false);
+            } else {
+                skippedBanner(sb, "Stage 3", "Assess Applicability");
+            }
+            sb.append("\n");
+
+            if (executedUntilStage >= 4) {
+                infoBanner(sb, "Stage 4", "Generate Report Artifacts", true);
+                infoLine(sb, "Generate customer-facing report artifacts");
+                infoLine(sb, "Status: done");
+                infoBanner(sb, "Stage 4", "Generate Report Artifacts", false);
+            } else {
+                skippedBanner(sb, "Stage 4", "Generate Report Artifacts");
+            }
+            sb.append("\n");
+
             if (!warnings.isEmpty()) {
-                sb.append("Warnings\n");
                 for (String warning : warnings) {
-                    sb.append("- ").append(warning).append("\n");
+                    warnLine(sb, warning);
                 }
                 sb.append("\n");
             }
 
             if (!errors.isEmpty()) {
-                sb.append("Errors\n");
                 for (String error : errors) {
-                    sb.append("- ").append(error).append("\n");
+                    errorLine(sb, error);
                 }
                 sb.append("\n");
             }
 
             if (ok) {
-                sb.append("Artifacts\n");
                 if (executedUntilStage >= 1) {
-                    sb.append("- Inventory: ").append(inventoryPath).append("\n");
+                    infoLine(sb, "Artifact inventory path: " + inventoryPath);
                 }
                 if (executedUntilStage >= 2) {
-                    sb.append("- Candidates: ").append(candidatePath).append("\n");
+                    infoLine(sb, "Artifact candidates path: " + candidatePath);
                 }
             }
 
             return sb.toString().trim();
         }
+
+        private static String nullToEmpty(String value) {
+            return value == null ? "" : value;
+        }
+
+        private static String stageRangeLabel(int executedUntilStage) {
+            return switch (executedUntilStage) {
+                case 1 -> "Stage 1";
+                case 2 -> "Stage 1+2";
+                case 3 -> "Stage 1+2+3";
+                case 4 -> "Stage 1+2+3+4";
+                default -> "Stage Run";
+            };
+        }
+
+        private static void infoBanner(StringBuilder sb, String stage, String title, boolean start) {
+            sb.append("========== [")
+                    .append(stage)
+                    .append("] ")
+                    .append(title)
+                    .append(" : ")
+                    .append(start ? "START" : "DONE")
+                    .append(" ==========")
+                    .append("\n");
+        }
+
+        private static void skippedBanner(StringBuilder sb, String stage, String title) {
+            sb.append("========== [")
+                    .append(stage)
+                    .append("] ")
+                    .append(title)
+                    .append(" : SKIPPED ==========")
+                    .append("\n");
+        }
+
+        private static void infoLine(StringBuilder sb, String line) {
+            sb.append(line).append("\n");
+        }
+
+        private static void warnLine(StringBuilder sb, String line) {
+            sb.append("[WARN] ").append(line).append("\n");
+        }
+
+        private static void errorLine(StringBuilder sb, String line) {
+            sb.append("[ERROR] ").append(line).append("\n");
+        }
     }
 
     public static Stage12Result run(CveReportRequest request, ObjectMapper objectMapper, int untilStage) throws IOException {
         var validation = CveReportValidationSupport.validateInputs(request, objectMapper);
-        List<String> checks = new ArrayList<>(validation.checks());
+        List<String> checks = new ArrayList<>();
         List<String> warnings = new ArrayList<>(validation.warnings());
         List<String> errors = new ArrayList<>(validation.errors());
         if (!errors.isEmpty()) {
-            return new Stage12Result(false, "", "", "", 0, 0, 0, checks, warnings, errors);
+            return new Stage12Result(false, "", "", "", 0,
+                    request.productName(), request.productVersion(), request.sbomPath(), 0, 0,
+                    request.licenseMapPath(), 0, 0, request.buildDirectory(), request.analystNotes() != null && !request.analystNotes().isBlank(),
+                    0, 0, List.of(), false, checks, warnings, errors);
         }
 
         JsonNode sbomRoot = readJson(request.sbomPath(), objectMapper);
@@ -195,18 +300,28 @@ public final class CveReportDeterministicSupport {
                 "buildDirectory", request.buildDirectory(),
                 "components", observedComponents
         ));
-        checks.add("Stage 1 inventory built: " + observedComponents.size() + " observed components");
 
         if (untilStage <= 1) {
-            checks.add("Stage 2 skipped by request (`--until-stage 1`).");
             return new Stage12Result(
                     true,
                     workspaceId,
                     inventoryPath.toString(),
                     "",
                     1,
+                    request.productName(),
+                    request.productVersion(),
+                    request.sbomPath(),
+                    sbomRoot.path("components").isArray() ? sbomRoot.path("components").size() : 0,
+                    sbomRoot.path("vulnerabilities").isArray() ? sbomRoot.path("vulnerabilities").size() : 0,
+                    request.licenseMapPath(),
+                    licenseMap.thirdPartyByName().size(),
+                    licenseMap.coreLibraryNames().size(),
+                    request.buildDirectory(),
+                    request.analystNotes() != null && !request.analystNotes().isBlank(),
                     observedComponents.size(),
                     0,
+                    List.of(),
+                    false,
                     checks,
                     warnings,
                     errors
@@ -226,13 +341,7 @@ public final class CveReportDeterministicSupport {
                 "candidateCount", candidateCollection.candidates().size(),
                 "candidates", candidateCollection.candidates()
         ));
-        for (String lookupWarning : candidateCollection.warnings()) {
-            warnings.add(lookupWarning);
-        }
-        if (!candidateCollection.lookupSources().isEmpty()) {
-            checks.add("Merged external advisory sources: " + String.join(", ", candidateCollection.lookupSources()));
-        }
-        checks.add("Stage 2 candidates built: " + candidateCollection.candidates().size() + " CVE candidates");
+        warnings.addAll(candidateCollection.warnings());
 
         return new Stage12Result(
                 true,
@@ -240,8 +349,20 @@ public final class CveReportDeterministicSupport {
                 inventoryPath.toString(),
                 candidatePath.toString(),
                 2,
+                request.productName(),
+                request.productVersion(),
+                request.sbomPath(),
+                sbomRoot.path("components").isArray() ? sbomRoot.path("components").size() : 0,
+                sbomRoot.path("vulnerabilities").isArray() ? sbomRoot.path("vulnerabilities").size() : 0,
+                request.licenseMapPath(),
+                licenseMap.thirdPartyByName().size(),
+                licenseMap.coreLibraryNames().size(),
+                request.buildDirectory(),
+                request.analystNotes() != null && !request.analystNotes().isBlank(),
                 observedComponents.size(),
                 candidateCollection.candidates().size(),
+                candidateCollection.lookupSources(),
+                !findExternalAdvisoryFiles(request.sbomPath()).isEmpty(),
                 checks,
                 warnings,
                 errors
@@ -373,7 +494,6 @@ public final class CveReportDeterministicSupport {
         List<Path> externalAdvisoryFiles = findExternalAdvisoryFiles(request.sbomPath());
         if (externalAdvisoryFiles.isEmpty()) {
             if (!osvLookup.lookupSources().isEmpty()) {
-                lookupWarnings.add("No local external advisory lookup files were found. Live OSV lookup is the only external advisory source in this run.");
             } else {
                 lookupWarnings.add("No local external advisory lookup files were found. Stage 2 candidates currently rely on SBOM and supplemental grype data only.");
             }
