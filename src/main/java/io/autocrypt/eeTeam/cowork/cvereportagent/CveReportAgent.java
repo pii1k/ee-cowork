@@ -111,6 +111,23 @@ public class CveReportAgent {
             List<String> indexedPaths
     ) {}
 
+    private record KnownComponent(
+            String componentName,
+            String version,
+            String purl
+    ) {}
+
+    private record CandidateMatch(
+            KnownComponent component,
+            String confidence
+    ) {}
+
+    private record CandidateCollectionResult(
+            List<CveCandidate> candidates,
+            List<String> lookupSources,
+            List<String> warnings
+    ) {}
+
     public record EvidenceInterpretation(
             String summary,
             String confidence,
@@ -248,6 +265,15 @@ public class CveReportAgent {
         }
 
         Map<String, CveCandidate> deduped = new LinkedHashMap<>();
+        LicenseMapContext licenseMap = loadLicenseMapContext(
+                state.request().licenseMapPath(),
+                state.request().buildDirectory(),
+                state.request().sbomPath()
+        );
+        Map<String, KnownComponent> knownByPurl = new LinkedHashMap<>();
+        Map<String, KnownComponent> knownByNameVersion = new LinkedHashMap<>();
+        Map<String, KnownComponent> knownByName = new LinkedHashMap<>();
+        indexKnownComponents(state.observedComponents(), licenseMap, knownByPurl, knownByNameVersion, knownByName);
         mergeCycloneDxVulnerabilities(
                 sbomRoot,
                 "sbom",
@@ -269,14 +295,66 @@ public class CveReportAgent {
             );
         }
 
-        List<CveCandidate> candidates = deduped.values().stream()
-                .sorted(Comparator.comparing(CveCandidate::cveId).thenComparing(CveCandidate::componentName))
-                .toList();
+        List<String> lookupSources = new ArrayList<>();
+        List<String> lookupWarnings = new ArrayList<>();
+        CveReportExternalAdvisorySupport.LookupResult osvLookup =
+                CveReportExternalAdvisorySupport.lookupOsvAdvisories(licenseMap.thirdPartyByName(), objectMapper);
+        for (CveReportExternalAdvisorySupport.ExternalAdvisory advisory : osvLookup.advisories()) {
+            String candidateKey = advisory.cveId() + "::" + normalize(advisory.componentName()) + "::" + advisory.componentVersion();
+            upsertCandidate(deduped, candidateKey, new CveCandidate(
+                    advisory.cveId(),
+                    advisory.componentName(),
+                    advisory.componentVersion(),
+                    advisory.matchedBy(),
+                    advisory.severity(),
+                    advisory.cvss(),
+                    advisory.description(),
+                    advisory.fixedVersions(),
+                    advisory.referenceUrls(),
+                    advisory.matchConfidence()
+            ));
+        }
+        lookupSources.addAll(osvLookup.lookupSources());
+        lookupWarnings.addAll(osvLookup.warnings());
+
+        List<Path> externalAdvisoryFiles = findExternalAdvisoryFiles(state.request().sbomPath());
+        if (externalAdvisoryFiles.isEmpty()) {
+            if (!osvLookup.lookupSources().isEmpty()) {
+                lookupWarnings.add("No local external advisory lookup files were found. Live OSV lookup is the only external advisory source in this run.");
+            } else {
+                lookupWarnings.add("No local external advisory lookup files were found. Stage 2 candidates currently rely on SBOM and supplemental grype data only.");
+            }
+        }
+
+        for (Path advisoryPath : externalAdvisoryFiles) {
+            logger.info("CveReportAgent", "Merging local external advisory source: " + advisoryPath);
+            mergeExternalAdvisoryLookup(
+                    readJson(advisoryPath.toString()),
+                    sourceNameFromAdvisoryFile(advisoryPath),
+                    knownByPurl,
+                    knownByNameVersion,
+                    knownByName,
+                    deduped
+            );
+            lookupSources.add(advisoryPath.toString());
+        }
+        for (String lookupWarning : lookupWarnings) {
+            logger.info("CveReportAgent", "WARNING: " + lookupWarning);
+        }
+
+        CandidateCollectionResult candidateCollection = new CandidateCollectionResult(
+                deduped.values().stream()
+                        .sorted(Comparator.comparing(CveCandidate::cveId).thenComparing(CveCandidate::componentName))
+                        .toList(),
+                List.copyOf(lookupSources),
+                List.copyOf(lookupWarnings)
+        );
 
         writeJson(candidatePath, Map.of(
                 "inventoryPath", state.inventoryPath(),
-                "candidateCount", candidates.size(),
-                "candidates", candidates
+                "lookupSources", candidateCollection.lookupSources(),
+                "candidateCount", candidateCollection.candidates().size(),
+                "candidates", candidateCollection.candidates()
         ));
 
         return new CandidateCollectionState(
@@ -284,7 +362,7 @@ public class CveReportAgent {
                 state.workspaceId(),
                 state.observedComponents(),
                 state.inventoryPath(),
-                candidates,
+                candidateCollection.candidates(),
                 candidatePath.toString()
         );
     }
@@ -408,6 +486,278 @@ public class CveReportAgent {
             return componentsByNameVersion.get(parsedNameVersion);
         }
         return null;
+    }
+
+    private void indexKnownComponents(
+            List<ObservedComponent> observedComponents,
+            LicenseMapContext licenseMap,
+            Map<String, KnownComponent> knownByPurl,
+            Map<String, KnownComponent> knownByNameVersion,
+            Map<String, KnownComponent> knownByName
+    ) {
+        for (ObservedComponent observedComponent : observedComponents) {
+            putKnownComponent(
+                    knownByPurl,
+                    knownByNameVersion,
+                    knownByName,
+                    new KnownComponent(observedComponent.componentName(), observedComponent.version(), observedComponent.purl())
+            );
+        }
+
+        for (Map.Entry<String, JsonNode> entry : licenseMap.thirdPartyByName().entrySet()) {
+            String componentName = entry.getKey();
+            JsonNode metadata = entry.getValue();
+            putKnownComponent(
+                    knownByPurl,
+                    knownByNameVersion,
+                    knownByName,
+                    new KnownComponent(
+                            componentName,
+                            textOrDefault(metadata, "version", "unknown"),
+                            textOrDefault(metadata, "purl", "")
+                    )
+            );
+        }
+    }
+
+    private void putKnownComponent(
+            Map<String, KnownComponent> knownByPurl,
+            Map<String, KnownComponent> knownByNameVersion,
+            Map<String, KnownComponent> knownByName,
+            KnownComponent component
+    ) {
+        String normalizedName = stripSrcSuffix(normalize(component.componentName()));
+        if (normalizedName.isBlank()) {
+            return;
+        }
+        knownByName.putIfAbsent(normalizedName, component);
+        if (component.version() != null && !component.version().isBlank()) {
+            knownByNameVersion.putIfAbsent(normalizedName + "@" + component.version(), component);
+        }
+        if (component.purl() != null && !component.purl().isBlank()) {
+            knownByPurl.putIfAbsent(stripPackageIdSuffix(component.purl()), component);
+        }
+    }
+
+    private void mergeExternalAdvisoryLookup(
+            JsonNode root,
+            String fallbackSource,
+            Map<String, KnownComponent> knownByPurl,
+            Map<String, KnownComponent> knownByNameVersion,
+            Map<String, KnownComponent> knownByName,
+            Map<String, CveCandidate> deduped
+    ) {
+        for (JsonNode advisoryNode : advisoryEntries(root)) {
+            String cveId = firstNonBlank(
+                    textOrDefault(advisoryNode, "cveId", ""),
+                    textOrDefault(advisoryNode, "id", ""),
+                    textOrDefault(advisoryNode.path("advisory"), "id", "")
+            );
+            if (cveId.isBlank()) {
+                continue;
+            }
+
+            CandidateMatch match = resolveKnownComponentFromAdvisory(
+                    advisoryNode,
+                    knownByPurl,
+                    knownByNameVersion,
+                    knownByName
+            );
+            KnownComponent component = match.component();
+            List<String> matchedBy = collectMatchedBy(advisoryNode, fallbackSource);
+            List<String> references = collectLookupReferenceUrls(advisoryNode);
+            List<String> fixedVersions = collectLookupFixedVersions(advisoryNode);
+
+            String candidateKey;
+            if (component == null) {
+                candidateKey = cveId + "::unknown";
+                upsertCandidate(deduped, candidateKey, new CveCandidate(
+                        cveId,
+                        firstNonBlank(
+                                textOrDefault(advisoryNode, "componentName", ""),
+                                textOrDefault(advisoryNode, "component", ""),
+                                textOrDefault(advisoryNode.path("component"), "name", ""),
+                                "unknown-component"
+                        ),
+                        firstNonBlank(
+                                textOrDefault(advisoryNode, "componentVersion", ""),
+                                textOrDefault(advisoryNode, "version", ""),
+                                textOrDefault(advisoryNode.path("component"), "version", ""),
+                                "unknown"
+                        ),
+                        matchedBy,
+                        firstNonBlank(textOrDefault(advisoryNode, "severity", ""), "UNKNOWN"),
+                        firstNonBlank(textOrDefault(advisoryNode, "cvss", ""), textOrDefault(advisoryNode, "score", ""), ""),
+                        firstNonBlank(
+                                textOrDefault(advisoryNode, "description", ""),
+                                textOrDefault(advisoryNode.path("advisory"), "summary", ""),
+                                ""
+                        ),
+                        fixedVersions,
+                        references,
+                        "low"
+                ));
+                continue;
+            }
+
+            candidateKey = cveId + "::" + normalize(component.componentName()) + "::" + component.version();
+            upsertCandidate(deduped, candidateKey, new CveCandidate(
+                    cveId,
+                    component.componentName(),
+                    component.version(),
+                    matchedBy,
+                    firstNonBlank(textOrDefault(advisoryNode, "severity", ""), "UNKNOWN"),
+                    firstNonBlank(textOrDefault(advisoryNode, "cvss", ""), textOrDefault(advisoryNode, "score", ""), ""),
+                    firstNonBlank(
+                            textOrDefault(advisoryNode, "description", ""),
+                            textOrDefault(advisoryNode.path("advisory"), "summary", ""),
+                            ""
+                    ),
+                    fixedVersions,
+                    references,
+                    match.confidence()
+            ));
+        }
+    }
+
+    private List<JsonNode> advisoryEntries(JsonNode root) {
+        if (root == null || root.isNull() || root.isMissingNode()) {
+            return List.of();
+        }
+        if (root.isArray()) {
+            return iterable(root);
+        }
+        if (root.path("advisories").isArray()) {
+            return iterable(root.path("advisories"));
+        }
+        if (root.path("vulnerabilities").isArray()) {
+            return iterable(root.path("vulnerabilities"));
+        }
+        return List.of();
+    }
+
+    private CandidateMatch resolveKnownComponentFromAdvisory(
+            JsonNode advisoryNode,
+            Map<String, KnownComponent> knownByPurl,
+            Map<String, KnownComponent> knownByNameVersion,
+            Map<String, KnownComponent> knownByName
+    ) {
+        String purl = firstNonBlank(
+                textOrDefault(advisoryNode, "purl", ""),
+                textOrDefault(advisoryNode.path("component"), "purl", "")
+        );
+        if (!purl.isBlank()) {
+            KnownComponent byPurl = knownByPurl.get(stripPackageIdSuffix(purl));
+            if (byPurl != null) {
+                return new CandidateMatch(byPurl, "high");
+            }
+        }
+
+        String componentName = firstNonBlank(
+                textOrDefault(advisoryNode, "componentName", ""),
+                textOrDefault(advisoryNode, "component", ""),
+                textOrDefault(advisoryNode.path("component"), "name", "")
+        );
+        String version = firstNonBlank(
+                textOrDefault(advisoryNode, "componentVersion", ""),
+                textOrDefault(advisoryNode, "version", ""),
+                textOrDefault(advisoryNode.path("component"), "version", "")
+        );
+
+        if (!componentName.isBlank() && !version.isBlank()) {
+            KnownComponent byNameVersion = knownByNameVersion.get(stripSrcSuffix(normalize(componentName)) + "@" + version);
+            if (byNameVersion != null) {
+                return new CandidateMatch(byNameVersion, "high");
+            }
+        }
+
+        if (!componentName.isBlank()) {
+            KnownComponent byName = knownByName.get(stripSrcSuffix(normalize(componentName)));
+            if (byName != null) {
+                return new CandidateMatch(byName, version.isBlank() ? "medium" : "high");
+            }
+            return new CandidateMatch(
+                    new KnownComponent(componentName, version.isBlank() ? "unknown" : version, purl),
+                    version.isBlank() ? "low" : "medium"
+            );
+        }
+
+        return new CandidateMatch(null, "low");
+    }
+
+    private List<String> collectMatchedBy(JsonNode advisoryNode, String fallbackSource) {
+        Set<String> matchedBy = new LinkedHashSet<>();
+        for (JsonNode node : iterable(advisoryNode.path("matchedBy"))) {
+            String value = node.asText("").trim();
+            if (!value.isBlank()) {
+                matchedBy.add(normalizeLookupSource(value));
+            }
+        }
+
+        String source = firstNonBlank(
+                textOrDefault(advisoryNode, "source", ""),
+                textOrDefault(advisoryNode.path("advisory"), "source", ""),
+                fallbackSource
+        );
+        if (!source.isBlank()) {
+            matchedBy.add(normalizeLookupSource(source));
+        }
+        return List.copyOf(matchedBy);
+    }
+
+    private List<String> collectLookupReferenceUrls(JsonNode advisoryNode) {
+        Set<String> refs = new LinkedHashSet<>();
+        for (JsonNode node : iterable(advisoryNode.path("referenceUrls"))) {
+            String value = node.asText("").trim();
+            if (!value.isBlank()) {
+                refs.add(value);
+            }
+        }
+        for (JsonNode node : iterable(advisoryNode.path("references"))) {
+            if (node.isTextual()) {
+                String value = node.asText("").trim();
+                if (!value.isBlank()) {
+                    refs.add(value);
+                }
+                continue;
+            }
+            String url = textOrDefault(node, "url", "");
+            if (!url.isBlank()) {
+                refs.add(url);
+            }
+        }
+        for (JsonNode node : iterable(advisoryNode.path("advisories"))) {
+            String url = textOrDefault(node, "url", "");
+            if (!url.isBlank()) {
+                refs.add(url);
+            }
+        }
+        String url = textOrDefault(advisoryNode, "url", "");
+        if (!url.isBlank()) {
+            refs.add(url);
+        }
+        return List.copyOf(refs);
+    }
+
+    private List<String> collectLookupFixedVersions(JsonNode advisoryNode) {
+        Set<String> fixedVersions = new LinkedHashSet<>();
+        String fixedVersion = textOrDefault(advisoryNode, "fixedVersion", "");
+        if (!fixedVersion.isBlank()) {
+            fixedVersions.add(fixedVersion);
+        }
+        for (JsonNode node : iterable(advisoryNode.path("fixedVersions"))) {
+            String value = node.asText("").trim();
+            if (!value.isBlank()) {
+                fixedVersions.add(value);
+            }
+        }
+        for (JsonNode node : iterable(advisoryNode.path("advisories"))) {
+            String value = textOrDefault(node, "fixedVersion", "");
+            if (!value.isBlank()) {
+                fixedVersions.add(value);
+            }
+        }
+        return List.copyOf(fixedVersions);
     }
 
     private List<String> collectAffectedRefs(JsonNode vulnNode) {
@@ -1140,6 +1490,49 @@ public class CveReportAgent {
         return result;
     }
 
+    private List<Path> findExternalAdvisoryFiles(String sbomPath) {
+        Path sbom = Paths.get(sbomPath).normalize();
+        List<Path> candidates = List.of(
+                sbom.getParent() != null ? sbom.getParent().resolve("external_advisories.json") : null,
+                sbom.getParent() != null ? sbom.getParent().resolve("advisory_lookup.json") : null,
+                sbom.getParent() != null ? sbom.getParent().resolve("osv_advisories.json") : null,
+                sbom.getParent() != null ? sbom.getParent().resolve("nvd_advisories.json") : null,
+                sbom.getParent() != null ? sbom.getParent().resolve("vendor_advisories.json") : null,
+                Paths.get("sbom/temp/external_advisories.json"),
+                Paths.get("sbom/temp/advisory_lookup.json"),
+                Paths.get("sbom/temp/osv_advisories.json"),
+                Paths.get("sbom/temp/nvd_advisories.json"),
+                Paths.get("sbom/temp/vendor_advisories.json")
+        );
+
+        List<Path> result = new ArrayList<>();
+        Set<String> seen = new LinkedHashSet<>();
+        for (Path candidate : candidates) {
+            if (candidate == null) {
+                continue;
+            }
+            Path normalized = candidate.normalize();
+            if (Files.exists(normalized) && seen.add(normalized.toString()) && !normalized.equals(sbom)) {
+                result.add(normalized);
+            }
+        }
+        return result;
+    }
+
+    private String sourceNameFromAdvisoryFile(Path advisoryPath) {
+        String fileName = advisoryPath.getFileName().toString().toLowerCase(Locale.ROOT);
+        if (fileName.contains("osv")) {
+            return "osv";
+        }
+        if (fileName.contains("nvd")) {
+            return "nvd_version_match";
+        }
+        if (fileName.contains("vendor")) {
+            return "vendor_advisory";
+        }
+        return "external_advisory";
+    }
+
     private String normalizeRef(String ref) {
         return stripPackageIdSuffix(ref).toLowerCase(Locale.ROOT);
     }
@@ -1188,6 +1581,35 @@ public class CveReportAgent {
         int leftIdx = order.indexOf(left);
         int rightIdx = order.indexOf(right);
         return order.get(Math.max(leftIdx, rightIdx));
+    }
+
+    private String firstNonBlank(String... values) {
+        for (String value : values) {
+            if (value != null && !value.isBlank()) {
+                return value;
+            }
+        }
+        return "";
+    }
+
+    private String normalizeLookupSource(String value) {
+        String normalized = value == null ? "" : value.trim().toLowerCase(Locale.ROOT);
+        if (normalized.contains("osv")) {
+            return "osv";
+        }
+        if (normalized.contains("nvd")) {
+            return "nvd_version_match";
+        }
+        if (normalized.contains("vendor")) {
+            return "vendor_advisory";
+        }
+        if (normalized.contains("manual")) {
+            return "manual_rule";
+        }
+        if (normalized.isBlank()) {
+            return "";
+        }
+        return normalized.replace(' ', '_');
     }
 
     private String detectToolchain(String buildDirectory, String sbomPath) {

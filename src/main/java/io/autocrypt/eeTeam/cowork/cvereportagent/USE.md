@@ -8,6 +8,8 @@ Current implementation focus:
 
 - distinguish SBOM-observed components from `license_map`-injected candidates
 - merge supplemental grype CycloneDX vulnerability sources when present
+- perform live OSV advisory lookup using `license_map` third-party metadata when network access is available
+- merge local external advisory lookup files when present
 - use build artifact path evidence from `buildDirectory`
 - classify findings into `affected`, `not_affected_not_present`, `not_affected_unused_code_path`, `not_affected_patched`, `fixed`, `under_investigation`
 
@@ -161,9 +163,29 @@ Generated files:
 
 `cve_candidates.json`
 
-- merged candidate list from SBOM and supplemental grype CycloneDX files
+- merged candidate list from SBOM, supplemental grype CycloneDX files, live OSV lookup, and local external advisory lookup files
 - preserves source provenance in `matchedBy`
 - can now be generated standalone together with `inventory.json` via `CveReportDeterministicMain`
+
+Local external advisory lookup files:
+
+- If present next to the SBOM or under `sbom/temp/`, Stage 2 also merges:
+- `external_advisories.json`
+- `advisory_lookup.json`
+- `osv_advisories.json`
+- `nvd_advisories.json`
+- `vendor_advisories.json`
+- Supported JSON shapes are either a top-level array or an object containing an `advisories` array
+- Each advisory entry should provide a CVE id via `cveId` or `id`
+- Component matching prefers `purl`, then `componentName` + `componentVersion`, then `componentName`
+- Matched source provenance is normalized into `matchedBy` such as `osv`, `nvd_version_match`, or `vendor_advisory`
+
+Live OSV lookup:
+
+- Stage 2 also queries the OSV API using the `third_party` entries in `license_map.json`
+- The lookup prefers `purl` values from `license_map` because they already include the concrete third-party version
+- If OSV lookup fails, candidate collection continues and the failure is reported as a warning instead of aborting the run
+- If no local advisory files are present but OSV lookup succeeds, OSV becomes the only external advisory source for that run
 
 `cve_assessment.json`
 
@@ -193,12 +215,14 @@ Implemented today:
 
 - `license_map`-aware inventory classification
 - supplemental grype CycloneDX merge from known local files
+- live OSV advisory lookup using `license_map` third-party metadata
+- local external advisory lookup merge from conventional JSON files
 - build directory path evidence scan
 - deterministic applicability rules with analyst override tags
 
 Not yet implemented:
 
-- direct NVD or OSV online lookup
+- direct NVD online lookup
 - deep binary inspection such as `ldd`, `readelf`, `nm`
 - automatic backport or patch commit verification
 - code-path reachability analysis beyond path-name evidence
